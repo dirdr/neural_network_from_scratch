@@ -142,11 +142,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "deep_learning_lib"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "nalgebra",
+ "ndarray",
+ "pretty_env_logger",
+]
+
+[[package]]
 name = "digit_recognizer_mnist"
 version = "0.1.0"
 dependencies = [
  "byteorder",
  "clap",
+ "deep_learning_lib",
  "flate2",
  "log",
  "nalgebra",

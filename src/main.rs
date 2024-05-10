@@ -2,9 +2,10 @@ use std::{io, path::PathBuf};
 
 use log::debug;
 
-use crate::core::read_data::{decompress_gz_file, read_data};
+use crate::utils::read_data::{decompress_gz_file, read_data};
 
 mod core;
+mod utils;
 
 const FILES_NAMES: [&str; 4] = [
     "train-labels-idx1-ubyte.gz",
