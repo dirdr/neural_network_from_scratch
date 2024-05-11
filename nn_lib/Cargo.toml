@@ -1,10 +1,11 @@
 [package]
-name = "deep_learning_lib"
+name = "nn_lib"
 version = "0.1.0"
 edition = "2021"
+author = ["Adrien Pelfresne", "Alexis Vapaille"]
 
 [dependencies]
 log = "0.4.21"
-nalgebra = "0.32.5"
 ndarray = "0.15.6"
 pretty_env_logger = "0.5.0"
+ndarray-rand = "0.14.0"

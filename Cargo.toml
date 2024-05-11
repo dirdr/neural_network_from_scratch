@@ -1,16 +1,16 @@
-workspace = { members = ["deep_learning_lib"] }
+workspace = { members = ["nn_lib"] }
 
 [package]
-name = "digit_recognizer_mnist"
+name = "nn_from_scratch"
 version = "0.1.0"
 edition = "2021"
+author = ["Adrien Pelfresne", "Alexis Vapaille"]
 
 [dependencies]
 byteorder = "1.5.0"
 clap = "4.5.4"
 flate2 = "1.0.30"
 log = "0.4.21"
-nalgebra = "0.32.5"
 ndarray = "0.15.6"
 pretty_env_logger = "0.5.0"
-deep_learning_lib = {path = "./deep_learning_lib/"}
+nn_lib = {path = "./nn_lib/"}
