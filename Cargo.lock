@@ -127,19 +127,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "digit_recognizer_mnist"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "clap",
- "flate2",
- "log",
- "ndarray",
- "nn_lib",
- "pretty_env_logger",
-]
-
-[[package]]
 name = "env_logger"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -267,6 +254,19 @@ dependencies = [
  "ndarray",
  "rand",
  "rand_distr",
+]
+
+[[package]]
+name = "nn_from_scratch"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "clap",
+ "flate2",
+ "log",
+ "ndarray",
+ "nn_lib",
+ "pretty_env_logger",
 ]
 
 [[package]]
