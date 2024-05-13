@@ -1,4 +1,4 @@
-use ndarray::{Array, Array1, Array2};
+use ndarray::{Array, Array2};
 
 use crate::initialization::InitializerType;
 
@@ -10,7 +10,7 @@ use crate::initialization::InitializerType;
 /// 2: return the input gradient with respect to the output gradient,
 /// the second role is used to propagate partial derivative backward in the network.
 /// the layer inputs have shape (i, 1), layer outputs have shape (j, 1).
-trait Layer {
+pub trait Layer {
     fn feed_forward(&self, input: &Array2<f64>) -> Array2<f64>;
 
     /// Return the input gradient vector (shape (i, 1)).
@@ -150,7 +150,7 @@ impl Layer for Softmax {
     }
 }
 
-enum ActivationType {
+pub enum ActivationType {
     ReLU,
 }
 
