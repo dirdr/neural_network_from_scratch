@@ -1,4 +1,4 @@
-use ndarray::Array2;
+use ndarray::{Array, Array1, Array2};
 
 use crate::initialization::InitializerType;
 
@@ -11,7 +11,7 @@ use crate::initialization::InitializerType;
 /// the second role is used to propagate partial derivative backward in the network.
 /// the layer inputs have shape (i, 1), layer outputs have shape (j, 1).
 trait Layer {
-    fn feed_forward(&self, input: Array2<f64>) -> Array2<f64>;
+    fn feed_forward(&self, input: &Array2<f64>) -> Array2<f64>;
 
     /// Return the input gradient vector (shape (i, 1)).
     /// # Arguments
@@ -19,8 +19,8 @@ trait Layer {
     /// * 'output_gradient' - Output gradient vector shape (j, 1))
     fn propagate_backward(
         &mut self,
-        input: Array2<f64>,
-        output_gradient: Array2<f64>,
+        input: &Array2<f64>,
+        output_gradient: &Array2<f64>,
         learning_rate: f64,
     ) -> Array2<f64>;
 }
@@ -49,8 +49,8 @@ impl DenseLayer {
 
 impl Layer for DenseLayer {
     /// Calculate the output vector (shape (j, 1))
-    fn feed_forward(&self, input: Array2<f64>) -> Array2<f64> {
-        self.weights.dot(&input) + &self.bias
+    fn feed_forward(&self, input: &Array2<f64>) -> Array2<f64> {
+        self.weights.dot(input) + &self.bias
     }
 
     /// Update trainable parameters (weights and bias)
@@ -60,12 +60,12 @@ impl Layer for DenseLayer {
     /// * `output_gradient` - (shape (j, 1))
     fn propagate_backward(
         &mut self,
-        input: Array2<f64>,
-        output_gradient: Array2<f64>,
+        input: &Array2<f64>,
+        output_gradient: &Array2<f64>,
         learning_rate: f64,
     ) -> Array2<f64> {
         let weights_gradient = output_gradient.dot(&input.t());
-        let input_gradient = self.weights.t().dot(&output_gradient);
+        let input_gradient = self.weights.t().dot(output_gradient);
         self.bias
             .scaled_add(-1.0, &output_gradient.mapv(|e| e * learning_rate));
         self.weights
@@ -82,7 +82,7 @@ struct ActivationLayer {
 impl Layer for ActivationLayer {
     /// apply the activation fonction to each input (shape (i * 1))
     /// return an output vector of shape (i * 1).
-    fn feed_forward(&self, input: Array2<f64>) -> Array2<f64> {
+    fn feed_forward(&self, input: &Array2<f64>) -> Array2<f64> {
         self.activation_type.apply(input)
     }
 
@@ -91,8 +91,8 @@ impl Layer for ActivationLayer {
     /// learning_rate.
     fn propagate_backward(
         &mut self,
-        input: Array2<f64>,
-        output_gradient: Array2<f64>,
+        input: &Array2<f64>,
+        output_gradient: &Array2<f64>,
         _: f64,
     ) -> Array2<f64> {
         output_gradient * self.activation_type.derivative_apply(input)
@@ -101,33 +101,52 @@ impl Layer for ActivationLayer {
 
 struct Softmax;
 
+impl Softmax {
+    /// Apply the softmax transformation to the input vector (shape (i, 1))
+    /// return the probability distribution vector (shape (i, 1))
+    fn transform(&self, input: &Array2<f64>) -> Array2<f64> {
+        let max_logit = input.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let sum_exps = input.clone().mapv(|e| f64::exp(e - max_logit)).sum();
+        input.mapv(|e| f64::exp(e - max_logit) / sum_exps)
+    }
+}
+
 /// The `SoftmaxLayer` is used just before the output to normalize probability of the logits.
 /// It is defined as a Layer and not as a Activation function
 /// because it operate on the whole input vector to normalized output veector
 /// and does not operate on single, independant values
 /// the 'propagate_backward' calculation is done considering this layer is acting as the output
-/// layer
+/// layer, just before the cost function
 impl Layer for Softmax {
-    fn feed_forward(&self, input: Array2<f64>) -> Array2<f64> {
-        let max_logit = input.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        let sum_exps = input.clone().mapv(|e| f64::exp(e - max_logit)).sum();
-        input.mapv(|e| f64::exp(e - max_logit) / sum_exps)
+    fn feed_forward(&self, input: &Array2<f64>) -> Array2<f64> {
+        self.transform(input)
     }
 
     /// Return the input gradient vector (shape (i, 1)).
     /// # Arguments
     /// * `input` - Vector of input (shape (i, 1))
-    /// * 'output_gradient' - Output gradient vector shape (j, 1))
+    /// * `output_gradient` - Output gradient vector shape (j, 1))
     /// G = J.t().dot(output_gradient)
     /// with J the jacobian matrice of the softmax function
     fn propagate_backward(
         &mut self,
-        input: Array2<f64>,
-        output_gradient: Array2<f64>,
-        learning_rate: f64,
+        input: &Array2<f64>,
+        output_gradient: &Array2<f64>,
+        _: f64,
     ) -> Array2<f64> {
-        // TODO implement this
-        todo!()
+        // gather the size of the (n, 1) input
+        let softmax_output = self.transform(input);
+        let size = input.shape()[0];
+        let diag: Array2<f64> = Array::from_diag(
+            &softmax_output
+                .clone()
+                .into_shape(size)
+                .unwrap()
+                .mapv(|e| e * (1.0 - e)),
+        );
+        let outer_product = softmax_output.dot(&softmax_output.t());
+        let jacobian = diag - outer_product;
+        jacobian.t().dot(output_gradient)
     }
 }
 
@@ -137,14 +156,14 @@ enum ActivationType {
 
 impl ActivationType {
     /// Apply an activation function to the given input
-    fn apply(&self, input: Array2<f64>) -> Array2<f64> {
+    fn apply(&self, input: &Array2<f64>) -> Array2<f64> {
         match self {
             Self::ReLU => input.mapv(|e| 0f64.max(e)),
         }
     }
 
     /// Apply the derivative
-    fn derivative_apply(&self, input: Array2<f64>) -> Array2<f64> {
+    fn derivative_apply(&self, input: &Array2<f64>) -> Array2<f64> {
         match self {
             Self::ReLU => input.mapv(|e| if e >= 0f64 { 1f64 } else { 0f64 }),
         }
