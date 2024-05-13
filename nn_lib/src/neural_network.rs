@@ -9,27 +9,36 @@ where
     layers: Vec<L>,
     learning_rate: f64,
     epochs: usize,
+    gradient_descent_strategy: GradientDescentStrategy,
+}
+
+pub enum NeuralNetworkError {
+    MissingMandatoryFields(String),
 }
 
 impl<L> NeuralNetworkBuilder<L>
 where
     L: Layer,
 {
-    /// Create a new `NeuralNetorkBuilder` with default values
+    /// Create a new `NeuralNetorkBuilder` with the following default values :
+    /// * `learning_rate`: 0.1
+    /// * `epochs`: 0.1
+    /// * `gradient_descent_strategy`: MiniBatch
     pub fn new() -> Self {
         Self {
             layers: vec![],
             learning_rate: 0.1,
             epochs: 1000,
+            gradient_descent_strategy: GradientDescentStrategy::MiniBatch,
         }
     }
 
-    pub fn build(self) -> NeuralNetwork<L> {
-        NeuralNetwork {
+    pub fn build(self) -> Result<NeuralNetwork<L>, NeuralNetworkError> {
+        Ok(NeuralNetwork {
             layers: self.layers,
             epochs: self.epochs,
             learning_rate: self.learning_rate,
-        }
+        })
     }
 
     /// Add a layer to the sequential neural network
@@ -48,8 +57,28 @@ where
         self.epochs = epochs;
         self
     }
+
+    pub fn gradient_descent_strategy(mut self, gds: GradientDescentStrategy) -> Self {
+        self.gradient_descent_strategy = gds;
+        self
+    }
 }
 
+/// Enumeration of Gradient Descent Strategy
+/// `Batch` use the whole dataset to make a gradient descent step
+/// `MiniBatch` use randomly shuffled subset of the original input
+/// `Stochastic` use a random data point of the original set
+enum GradientDescentStrategy {
+    Batch,
+    MiniBatch,
+    Stochastic,
+}
+
+/// a trainable `NeuralNetwork`
+/// # Fields
+/// * `layers` - A vector of layers (could be activation, convolutional, dense, etc..) in
+/// sequencial order
+/// * `epochs`
 struct NeuralNetwork<L>
 where
     L: Layer,
@@ -67,7 +96,6 @@ where
         todo!()
     }
 
-    fn train(&self) {
-        todo!()
-    }
+    /// Train the neural network
+    fn train(&self) {}
 }
