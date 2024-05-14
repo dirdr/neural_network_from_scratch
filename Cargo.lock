@@ -274,6 +274,8 @@ name = "nn_from_scratch"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "mnist",
+ "nn_lib",
  "pretty_env_logger",
 ]
 

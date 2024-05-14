@@ -13,8 +13,7 @@ const FILES_NAMES: [&str; 4] = [
     "t10k-labels-idx1-ubyte.gz",
 ];
 
-fn main() -> io::Result<()> {
-    pretty_env_logger::init();
+fn load_dataset() -> io::Result<()> {
     let base_path = PathBuf::from("./resources");
     let mut data = vec![];
 

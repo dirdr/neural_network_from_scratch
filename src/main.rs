@@ -1,1 +1,3 @@
-fn main() {}
+fn main() {
+    pretty_env_logger::init();
+}
