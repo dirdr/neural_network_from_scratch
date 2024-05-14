@@ -233,6 +233,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mnist"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "clap",
+ "flate2",
+ "log",
+ "ndarray",
+ "nn_lib",
+ "pretty_env_logger",
+]
+
+[[package]]
 name = "ndarray"
 version = "0.15.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -260,12 +273,7 @@ dependencies = [
 name = "nn_from_scratch"
 version = "0.1.0"
 dependencies = [
- "byteorder",
  "clap",
- "flate2",
- "log",
- "ndarray",
- "nn_lib",
  "pretty_env_logger",
 ]
 

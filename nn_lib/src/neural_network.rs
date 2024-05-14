@@ -2,7 +2,7 @@ use ndarray::Array2;
 
 use crate::layer::Layer;
 
-struct NeuralNetworkBuilder<L>
+pub struct NeuralNetworkBuilder<L>
 where
     L: Layer,
 {
@@ -78,8 +78,9 @@ enum GradientDescentStrategy {
 /// # Fields
 /// * `layers` - A vector of layers (could be activation, convolutional, dense, etc..) in
 /// sequencial order
-/// * `epochs`
-struct NeuralNetwork<L>
+/// * `epochs` - number of time the whole dataset will be used to train the network
+/// * `learning_rate` - gradient descent learning rate
+pub struct NeuralNetwork<L>
 where
     L: Layer,
 {

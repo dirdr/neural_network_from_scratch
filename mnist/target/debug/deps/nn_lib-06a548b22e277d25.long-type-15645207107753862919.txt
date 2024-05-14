@@ -1,0 +1,1 @@
+fn(_, _) -> ndarray::ArrayBase<ndarray::OwnedRepr<_>, ndarray::Dim<ndarray::IxDynImpl>> {ndarray::impl_constructors::<impl ndarray::ArrayBase<ndarray::OwnedRepr<_>, ndarray::Dim<ndarray::IxDynImpl>>>::from_shape_fn::<_, _>}
