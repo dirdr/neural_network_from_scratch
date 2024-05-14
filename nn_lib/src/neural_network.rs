@@ -2,11 +2,15 @@ use ndarray::Array2;
 
 use crate::layer::Layer;
 
-pub struct NeuralNetworkBuilder {
+pub enum Buildable {}
+pub enum Uncomplete {}
+
+pub struct NeuralNetworkBuilder<State = Uncomplete> {
     layers: Vec<Box<dyn Layer>>,
     learning_rate: f64,
     epochs: usize,
     gradient_descent_strategy: GradientDescentStrategy,
+    state: std::marker::PhantomData<State>,
 }
 
 pub enum NeuralNetworkError {
@@ -18,28 +22,21 @@ impl NeuralNetworkBuilder {
     /// * `learning_rate`: 0.1
     /// * `epochs`: 0.1
     /// * `gradient_descent_strategy`: MiniBatch
-    pub fn new() -> Self {
+    pub fn new() -> NeuralNetworkBuilder<Uncomplete> {
         Self {
             layers: vec![],
             learning_rate: 0.1,
             epochs: 1000,
             gradient_descent_strategy: GradientDescentStrategy::MiniBatch,
+            state: std::marker::PhantomData,
         }
     }
+}
 
-    pub fn build(self) -> Result<NeuralNetwork, NeuralNetworkError> {
-        Ok(NeuralNetwork {
-            layers: self.layers,
-            epochs: self.epochs,
-            learning_rate: self.learning_rate,
-        })
-    }
-
-    pub fn add_input_layer(mut self, input_sizej te)
-
+impl NeuralNetworkBuilder<Uncomplete> {
     /// Add a layer to the sequential neural network
     /// in a sequential neural network, layers are added left to right (input -> hidden -> output)
-    pub fn add_layer(mut self, layer: Box<dyn Layer>) -> Self {
+    pub fn push_layer(mut self, layer: Box<dyn Layer>) -> Self {
         self.layers.push(layer);
         self
     }
@@ -57,6 +54,16 @@ impl NeuralNetworkBuilder {
     pub fn gradient_descent_strategy(mut self, gds: GradientDescentStrategy) -> Self {
         self.gradient_descent_strategy = gds;
         self
+    }
+}
+
+impl NeuralNetworkBuilder<Buildable> {
+    pub fn build(self) -> Result<NeuralNetwork, NeuralNetworkError> {
+        Ok(NeuralNetwork {
+            layers: self.layers,
+            epochs: self.epochs,
+            learning_rate: self.learning_rate,
+        })
     }
 }
 
