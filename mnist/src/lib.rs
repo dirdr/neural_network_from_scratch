@@ -4,6 +4,8 @@ use log::debug;
 
 use crate::utils::read_data::{decompress_gz_file, read_data};
 
+mod benchmark;
+mod network;
 mod utils;
 
 const FILES_NAMES: [&str; 4] = [

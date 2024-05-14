@@ -2,11 +2,8 @@ use ndarray::Array2;
 
 use crate::layer::Layer;
 
-pub struct NeuralNetworkBuilder<L>
-where
-    L: Layer,
-{
-    layers: Vec<L>,
+pub struct NeuralNetworkBuilder {
+    layers: Vec<Box<dyn Layer>>,
     learning_rate: f64,
     epochs: usize,
     gradient_descent_strategy: GradientDescentStrategy,
@@ -16,10 +13,7 @@ pub enum NeuralNetworkError {
     MissingMandatoryFields(String),
 }
 
-impl<L> NeuralNetworkBuilder<L>
-where
-    L: Layer,
-{
+impl NeuralNetworkBuilder {
     /// Create a new `NeuralNetorkBuilder` with the following default values :
     /// * `learning_rate`: 0.1
     /// * `epochs`: 0.1
@@ -33,7 +27,7 @@ where
         }
     }
 
-    pub fn build(self) -> Result<NeuralNetwork<L>, NeuralNetworkError> {
+    pub fn build(self) -> Result<NeuralNetwork, NeuralNetworkError> {
         Ok(NeuralNetwork {
             layers: self.layers,
             epochs: self.epochs,
@@ -41,9 +35,11 @@ where
         })
     }
 
+    pub fn add_input_layer(mut self, input_sizej te)
+
     /// Add a layer to the sequential neural network
     /// in a sequential neural network, layers are added left to right (input -> hidden -> output)
-    pub fn add_layer(mut self, layer: L) -> Self {
+    pub fn add_layer(mut self, layer: Box<dyn Layer>) -> Self {
         self.layers.push(layer);
         self
     }
@@ -64,11 +60,17 @@ where
     }
 }
 
+impl Default for NeuralNetworkBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Enumeration of Gradient Descent Strategy
 /// `Batch` use the whole dataset to make a gradient descent step
 /// `MiniBatch` use randomly shuffled subset of the original input
 /// `Stochastic` use a random data point of the original set
-enum GradientDescentStrategy {
+pub enum GradientDescentStrategy {
     Batch,
     MiniBatch,
     Stochastic,
@@ -80,19 +82,13 @@ enum GradientDescentStrategy {
 /// sequencial order
 /// * `epochs` - number of time the whole dataset will be used to train the network
 /// * `learning_rate` - gradient descent learning rate
-pub struct NeuralNetwork<L>
-where
-    L: Layer,
-{
-    layers: Vec<L>,
+pub struct NeuralNetwork {
+    layers: Vec<Box<dyn Layer>>,
     epochs: usize,
     learning_rate: f64,
 }
 
-impl<L> NeuralNetwork<L>
-where
-    L: Layer,
-{
+impl NeuralNetwork {
     fn predict(&self, input: Array2<f64>) -> Array2<f64> {
         todo!()
     }
