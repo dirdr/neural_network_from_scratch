@@ -1,3 +1,4 @@
+use log::error;
 use ndarray::{Array, Array2};
 
 use crate::initialization::InitializerType;
@@ -11,7 +12,7 @@ use crate::initialization::InitializerType;
 /// the second role is used to propagate partial derivative backward in the network.
 /// the layer inputs have shape (i, 1), layer outputs have shape (j, 1).
 pub trait Layer {
-    fn feed_forward(&self, input: &Array2<f64>) -> Array2<f64>;
+    fn feed_forward(&mut self, input: &Array2<f64>) -> Array2<f64>;
 
     /// Return the input gradient vector (shape (i, 1)).
     /// # Arguments
@@ -19,7 +20,6 @@ pub trait Layer {
     /// * 'output_gradient' - Output gradient vector shape (j, 1))
     fn propagate_backward(
         &mut self,
-        input: &Array2<f64>,
         output_gradient: &Array2<f64>,
         learning_rate: f64,
     ) -> Array2<f64>;
@@ -34,6 +34,8 @@ pub struct DenseLayer {
     weights: Array2<f64>,
     /// shape (j, 1) vector of bias
     bias: Array2<f64>,
+    /// input passed during the feed forward step
+    input: Option<Array2<f64>>,
 }
 
 impl DenseLayer {
@@ -43,13 +45,16 @@ impl DenseLayer {
         Self {
             weights: init.initialize(input_size, (output_size, input_size)),
             bias: init.initialize(input_size, (output_size, 1)),
+            input: None,
         }
     }
 }
 
 impl Layer for DenseLayer {
     /// Calculate the output vector (shape (j, 1))
-    fn feed_forward(&self, input: &Array2<f64>) -> Array2<f64> {
+    /// and store the passed input inside the layer to be used in the backpropagation
+    fn feed_forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
+        self.input = Some(input.clone());
         self.weights.dot(input) + &self.bias
     }
 
@@ -60,10 +65,12 @@ impl Layer for DenseLayer {
     /// * `output_gradient` - (shape (j, 1))
     fn propagate_backward(
         &mut self,
-        input: &Array2<f64>,
         output_gradient: &Array2<f64>,
         learning_rate: f64,
     ) -> Array2<f64> {
+        let input = self
+            .input
+            .unwrap_or_else(|| panic!("access to a unset input inside backproapgation"));
         let weights_gradient = output_gradient.dot(&input.t());
         let input_gradient = self.weights.t().dot(output_gradient);
         self.bias
@@ -77,28 +84,32 @@ impl Layer for DenseLayer {
 /// The `ActivationLayer` apply a activation function to it's input node to yield the output nodes.
 struct ActivationLayer {
     pub activation_type: ActivationType,
+    pub input: Option<Array2<f64>>,
 }
 
 impl Layer for ActivationLayer {
     /// apply the activation fonction to each input (shape (i * 1))
     /// return an output vector of shape (i * 1).
-    fn feed_forward(&self, input: &Array2<f64>) -> Array2<f64> {
+    fn feed_forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
         self.activation_type.apply(input)
     }
 
     /// return the input gradient with respect to the activation layer output gradient
     /// because the activation layer doesn't have trainable parameters, we don't care about the
     /// learning_rate.
-    fn propagate_backward(
-        &mut self,
-        input: &Array2<f64>,
-        output_gradient: &Array2<f64>,
-        _: f64,
-    ) -> Array2<f64> {
-        output_gradient * self.activation_type.derivative_apply(input)
+    fn propagate_backward(&mut self, output_gradient: &Array2<f64>, _: f64) -> Array2<f64> {
+        let input = self
+            .input
+            .unwrap_or_else(|| panic!("access to a unset input inside backproapgation"));
+        output_gradient * self.activation_type.derivative_apply(&input)
     }
 }
 
+/// The `SoftmaxLayer` is used just before the output to normalize probability of the logits.
+/// This doesn't impl the `Layer` trait because we don't need to propagate the cost gradient
+/// backward through this, reason is that this layer is used between the logit and the cost function to
+/// normalize prediction probability, but we can easily calculate the gradient of the cost function with
+/// respect to the logits and thus we don't need to propagate anything through this.
 struct Softmax;
 
 impl Softmax {
@@ -108,45 +119,6 @@ impl Softmax {
         let max_logit = input.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         let sum_exps = input.clone().mapv(|e| f64::exp(e - max_logit)).sum();
         input.mapv(|e| f64::exp(e - max_logit) / sum_exps)
-    }
-}
-
-/// The `SoftmaxLayer` is used just before the output to normalize probability of the logits.
-/// It is defined as a Layer and not as a Activation function
-/// because it operate on the whole input vector to normalized output veector
-/// and does not operate on single, independant values
-/// the 'propagate_backward' calculation is done considering this layer is acting as the output
-/// layer, just before the cost function
-impl Layer for Softmax {
-    fn feed_forward(&self, input: &Array2<f64>) -> Array2<f64> {
-        self.transform(input)
-    }
-
-    /// Return the input gradient vector (shape (i, 1)).
-    /// # Arguments
-    /// * `input` - Vector of input (shape (i, 1))
-    /// * `output_gradient` - Output gradient vector shape (j, 1))
-    /// G = J.t().dot(output_gradient)
-    /// with J the jacobian matrice of the softmax function
-    fn propagate_backward(
-        &mut self,
-        input: &Array2<f64>,
-        output_gradient: &Array2<f64>,
-        _: f64,
-    ) -> Array2<f64> {
-        // gather the size of the (n, 1) input
-        let softmax_output = self.transform(input);
-        let size = input.shape()[0];
-        let diag: Array2<f64> = Array::from_diag(
-            &softmax_output
-                .clone()
-                .into_shape(size)
-                .unwrap()
-                .mapv(|e| e * (1.0 - e)),
-        );
-        let outer_product = softmax_output.dot(&softmax_output.t());
-        let jacobian = diag - outer_product;
-        jacobian.t().dot(output_gradient)
     }
 }
 

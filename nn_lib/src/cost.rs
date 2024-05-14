@@ -6,9 +6,11 @@ pub enum Cost {
 
 impl Cost {
     /// Calculate the classification cost for a predicted probability, which is in [0; 1]
-    pub fn classification_cost(&self, predicted_probability: f64) -> f64 {
+    fn classification_cost(&self, predicted_probability: f64) -> f64 {
         match self {
             Self::CrossEntropy => -f64::ln(predicted_probability),
         }
     }
+
+    ///
 }

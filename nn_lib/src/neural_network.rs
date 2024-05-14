@@ -96,10 +96,40 @@ pub struct NeuralNetwork {
 }
 
 impl NeuralNetwork {
-    fn predict(&self, input: Array2<f64>) -> Array2<f64> {
-        todo!()
+    fn predict(&self, input: &Array2<f64>) -> Array2<f64> {
+        let mut output = input.clone();
+        for layer in &mut self.layers {
+            output = layer.feed_forward(&output);
+        }
+        output
     }
 
     /// Train the neural network
-    fn train(&self) {}
+    fn train<F>(
+        &self,
+        x_train: Vec<Array2<f64>>,
+        y_train: Vec<Array2<f64>>,
+        cost_function: F,
+        cost_function_prime: F,
+    ) where
+        F: Fn(&Array2<f64>, &Array2<f64>) -> Array2<f64>,
+    {
+        for _ in 0..self.epochs {
+            let mut error = 0f64;
+
+            // TODO handle multiple Gradient descent strategy
+            // TODO wrap function inside a GradientDescent method
+            for (x, y) in x_train.iter().zip(y_train.iter()) {
+                let output = &self.predict(x);
+
+                error += cost_function(y, output);
+
+                let grad = cost_function_prime(y, output);
+
+                for layer in self.layers.iter().rev() {
+                    grad = layer.propagate_backward(output_gradient, self.learning_rate)
+                }
+            }
+        }
+    }
 }
