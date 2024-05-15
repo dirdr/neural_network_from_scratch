@@ -1,5 +1,4 @@
-use log::error;
-use ndarray::{Array, Array2};
+use ndarray::Array2;
 
 use crate::initialization::InitializerType;
 
@@ -41,7 +40,7 @@ pub struct DenseLayer {
 impl DenseLayer {
     /// Create a new `DenseLayer` filling it with random value. see `InitializerType` for
     /// initialization parameters
-    fn new(input_size: usize, output_size: usize, init: InitializerType) -> Self {
+    pub fn new(input_size: usize, output_size: usize, init: InitializerType) -> Self {
         Self {
             weights: init.initialize(input_size, (output_size, input_size)),
             bias: init.initialize(input_size, (output_size, 1)),

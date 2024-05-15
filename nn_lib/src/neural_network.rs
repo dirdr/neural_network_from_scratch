@@ -134,7 +134,7 @@ impl NeuralNetwork {
                 }
             }
 
-            error = error / x_train.len() as f64;
+            error /= x_train.len() as f64;
             info!("Epochs : {}, training_error : {}", e, error)
         }
     }

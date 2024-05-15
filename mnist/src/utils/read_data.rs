@@ -6,7 +6,6 @@ use std::{
 
 use byteorder::{BigEndian, ReadBytesExt};
 use flate2::bufread::GzDecoder;
-use log::debug;
 use ndarray::ArrayD;
 
 pub fn decompress_gz_file<P: AsRef<Path>>(input: P, output: P) -> io::Result<()> {
@@ -26,11 +25,10 @@ pub fn decompress_gz_file<P: AsRef<Path>>(input: P, output: P) -> io::Result<()>
 // - third byte is the data type
 // - fourth byte is the number of dimension
 // dimensions are given next, each dimension is given by (big endian) 4 bytes
-pub fn read_data<P: AsRef<Path> + std::fmt::Debug + Copy>(path: P) -> io::Result<ArrayD<u8>> {
+pub fn read_idx_data<P: AsRef<Path> + std::fmt::Debug + Copy>(path: P) -> io::Result<ArrayD<u8>> {
     let mut f = BufReader::new(File::open(path)?);
     let magic_number = f.read_u32::<BigEndian>()?;
     let num_dimension = magic_number & 0xFF;
-    debug!("dim number in data {:?}: {}", &path, num_dimension);
     let mut shape = vec![];
 
     for _ in 0..num_dimension {
