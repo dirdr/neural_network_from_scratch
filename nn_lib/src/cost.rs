@@ -11,6 +11,4 @@ impl Cost {
             Self::CrossEntropy => -f64::ln(predicted_probability),
         }
     }
-
-    ///
 }

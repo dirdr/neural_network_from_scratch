@@ -1,4 +1,6 @@
+use log::info;
 use ndarray::Array2;
+use num_traits::Zero;
 
 use crate::layer::Layer;
 
@@ -96,7 +98,7 @@ pub struct NeuralNetwork {
 }
 
 impl NeuralNetwork {
-    fn predict(&self, input: &Array2<f64>) -> Array2<f64> {
+    fn predict(&mut self, input: &Array2<f64>) -> Array2<f64> {
         let mut output = input.clone();
         for layer in &mut self.layers {
             output = layer.feed_forward(&output);
@@ -106,7 +108,7 @@ impl NeuralNetwork {
 
     /// Train the neural network
     fn train<F>(
-        &self,
+        &mut self,
         x_train: Vec<Array2<f64>>,
         y_train: Vec<Array2<f64>>,
         cost_function: F,
@@ -114,22 +116,26 @@ impl NeuralNetwork {
     ) where
         F: Fn(&Array2<f64>, &Array2<f64>) -> Array2<f64>,
     {
-        for _ in 0..self.epochs {
-            let mut error = 0f64;
+        let output_shape = y_train[0].raw_dim();
+        for e in 0..self.epochs {
+            let mut error: Array2<f64> = Array2::zeros(output_shape);
 
             // TODO handle multiple Gradient descent strategy
             // TODO wrap function inside a GradientDescent method
             for (x, y) in x_train.iter().zip(y_train.iter()) {
                 let output = &self.predict(x);
 
-                error += cost_function(y, output);
+                error.scaled_add(1f64, &cost_function(y, output));
 
-                let grad = cost_function_prime(y, output);
+                let mut grad = cost_function_prime(y, output);
 
-                for layer in self.layers.iter().rev() {
-                    grad = layer.propagate_backward(output_gradient, self.learning_rate)
+                for layer in self.layers.iter_mut().rev() {
+                    grad = layer.propagate_backward(&grad, self.learning_rate);
                 }
             }
+
+            error = error / x_train.len() as f64;
+            info!("Epochs : {}, training_error : {}", e, error)
         }
     }
 }

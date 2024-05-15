@@ -17,7 +17,7 @@ pub trait Layer {
     /// Return the input gradient vector (shape (i, 1)).
     /// # Arguments
     /// * `input` - Vector of input (shape (i, 1))
-    /// * 'output_gradient' - Output gradient vector shape (j, 1))
+    /// * `output_gradient` - Output gradient vector shape (j, 1))
     fn propagate_backward(
         &mut self,
         output_gradient: &Array2<f64>,

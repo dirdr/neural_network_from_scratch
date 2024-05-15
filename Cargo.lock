@@ -304,6 +304,7 @@ dependencies = [
  "log",
  "ndarray",
  "ndarray-rand",
+ "num-traits",
  "pretty_env_logger",
 ]
 
