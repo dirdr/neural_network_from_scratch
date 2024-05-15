@@ -70,6 +70,7 @@ impl Layer for DenseLayer {
     ) -> Array2<f64> {
         let input = self
             .input
+            .clone()
             .unwrap_or_else(|| panic!("access to a unset input inside backproapgation"));
         let weights_gradient = output_gradient.dot(&input.t());
         let input_gradient = self.weights.t().dot(output_gradient);
@@ -100,6 +101,7 @@ impl Layer for ActivationLayer {
     fn propagate_backward(&mut self, output_gradient: &Array2<f64>, _: f64) -> Array2<f64> {
         let input = self
             .input
+            .clone()
             .unwrap_or_else(|| panic!("access to a unset input inside backproapgation"));
         output_gradient * self.activation_type.derivative_apply(&input)
     }
