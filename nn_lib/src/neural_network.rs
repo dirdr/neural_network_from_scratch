@@ -1,18 +1,13 @@
+use crate::{cost::Cost, layer::Layer};
 use log::info;
-use ndarray::Array2;
-use num_traits::Zero;
+use ndarray::{Array2, Array3, Axis, NdProducer};
 
-use crate::layer::Layer;
-
-pub enum Buildable {}
-pub enum Uncomplete {}
-
-pub struct NeuralNetworkBuilder<State = Uncomplete> {
+pub struct NeuralNetworkBuilder {
     layers: Vec<Box<dyn Layer>>,
     learning_rate: f64,
     epochs: usize,
     gradient_descent_strategy: GradientDescentStrategy,
-    state: std::marker::PhantomData<State>,
+    cost_function: Cost,
 }
 
 pub enum NeuralNetworkError {
@@ -24,26 +19,26 @@ impl NeuralNetworkBuilder {
     /// * `learning_rate`: 0.1
     /// * `epochs`: 0.1
     /// * `gradient_descent_strategy`: MiniBatch
-    pub fn new() -> NeuralNetworkBuilder<Uncomplete> {
+    pub fn new() -> NeuralNetworkBuilder {
         Self {
             layers: vec![],
             learning_rate: 0.1,
             epochs: 1000,
             gradient_descent_strategy: GradientDescentStrategy::MiniBatch,
-            state: std::marker::PhantomData,
+            cost_function: Cost::CrossEntropy,
         }
     }
 }
 
-impl NeuralNetworkBuilder<Uncomplete> {
+impl NeuralNetworkBuilder {
     /// Add a layer to the sequential neural network
     /// in a sequential neural network, layers are added left to right (input -> hidden -> output)
-    pub fn push_layer(mut self, layer: Box<dyn Layer>) -> Self {
+    pub fn push_layer(mut self, layer: Box<dyn Layer>) -> NeuralNetworkBuilder {
         self.layers.push(layer);
         self
     }
 
-    pub fn with_learning_rate(mut self, learning_rate: f64) -> Self {
+    pub fn with_learning_rate(mut self, learning_rate: f64) -> NeuralNetworkBuilder {
         self.learning_rate = learning_rate;
         self
     }
@@ -57,9 +52,7 @@ impl NeuralNetworkBuilder<Uncomplete> {
         self.gradient_descent_strategy = gds;
         self
     }
-}
 
-impl NeuralNetworkBuilder<Buildable> {
     pub fn build(self) -> Result<NeuralNetwork, NeuralNetworkError> {
         Ok(NeuralNetwork {
             layers: self.layers,
@@ -98,7 +91,7 @@ pub struct NeuralNetwork {
 }
 
 impl NeuralNetwork {
-    fn predict(&mut self, input: &Array2<f64>) -> Array2<f64> {
+    pub fn predict(&mut self, input: &Array2<f64>) -> Array2<f64> {
         let mut output = input.clone();
         for layer in &mut self.layers {
             output = layer.feed_forward(&output);
@@ -107,16 +100,8 @@ impl NeuralNetwork {
     }
 
     /// Train the neural network
-    fn train<F>(
-        &mut self,
-        x_train: Vec<Array2<f64>>,
-        y_train: Vec<Array2<f64>>,
-        cost_function: F,
-        cost_function_prime: F,
-    ) where
-        F: Fn(&Array2<f64>, &Array2<f64>) -> Array2<f64>,
-    {
-        let output_shape = y_train[0].raw_dim();
+    pub fn train(&mut self, x_train: Array3<f64>, y_train: Array3<f64>, cost: Cost) {
+        let output_shape = y_train.index_axis(Axis(0), 0).raw_dim();
         for e in 0..self.epochs {
             let mut error: Array2<f64> = Array2::zeros(output_shape);
 
@@ -125,9 +110,9 @@ impl NeuralNetwork {
             for (x, y) in x_train.iter().zip(y_train.iter()) {
                 let output = &self.predict(x);
 
-                error.scaled_add(1f64, &cost_function(y, output));
+                error += cost.cost(y, output);
 
-                let mut grad = cost_function_prime(y, output);
+                let mut grad = cost.cost_output_gradient(y, output);
 
                 for layer in self.layers.iter_mut().rev() {
                     grad = layer.propagate_backward(&grad, self.learning_rate);

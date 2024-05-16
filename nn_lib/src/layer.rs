@@ -82,9 +82,18 @@ impl Layer for DenseLayer {
 }
 
 /// The `ActivationLayer` apply a activation function to it's input node to yield the output nodes.
-struct ActivationLayer {
+pub struct ActivationLayer {
     pub activation_type: ActivationType,
     pub input: Option<Array2<f64>>,
+}
+
+impl ActivationLayer {
+    pub fn from(activation_type: ActivationType) -> Self {
+        Self {
+            activation_type,
+            input: None,
+        }
+    }
 }
 
 impl Layer for ActivationLayer {
