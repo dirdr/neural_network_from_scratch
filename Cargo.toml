@@ -11,3 +11,5 @@ clap = "4.5.4"
 pretty_env_logger = "0.5.0"
 nn_lib = {path = "./nn_lib/"}
 mnist = {path = "./mnist/"}
+anyhow = "1.0.83"
+log = "0.4.21"

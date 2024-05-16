@@ -1,6 +1,5 @@
-use mnist::load_dataset;
-
-fn main() {
+fn main() -> anyhow::Result<()> {
     pretty_env_logger::init();
-    let data_set = load_dataset();
+    mnist::build_network()?;
+    Ok(())
 }

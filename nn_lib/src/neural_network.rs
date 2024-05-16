@@ -1,13 +1,18 @@
-use crate::{cost::Cost, layer::Layer};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc, Mutex,
+};
+
+use crate::{cost::CostFunction, layer::Layer};
 use log::info;
-use ndarray::{Array2, Array3, Axis, NdProducer};
+use ndarray::{par_azip, Array2, Array3, Axis};
 
 pub struct NeuralNetworkBuilder {
-    layers: Vec<Box<dyn Layer>>,
+    layers: Vec<Arc<Mutex<dyn Layer>>>,
     learning_rate: f64,
     epochs: usize,
     gradient_descent_strategy: GradientDescentStrategy,
-    cost_function: Cost,
+    cost_function: CostFunction,
 }
 
 pub enum NeuralNetworkError {
@@ -25,7 +30,7 @@ impl NeuralNetworkBuilder {
             learning_rate: 0.1,
             epochs: 1000,
             gradient_descent_strategy: GradientDescentStrategy::MiniBatch,
-            cost_function: Cost::CrossEntropy,
+            cost_function: CostFunction::CrossEntropy,
         }
     }
 }
@@ -33,8 +38,8 @@ impl NeuralNetworkBuilder {
 impl NeuralNetworkBuilder {
     /// Add a layer to the sequential neural network
     /// in a sequential neural network, layers are added left to right (input -> hidden -> output)
-    pub fn push_layer(mut self, layer: Box<dyn Layer>) -> NeuralNetworkBuilder {
-        self.layers.push(layer);
+    pub fn push_layer(mut self, layer: impl Layer + 'static) -> NeuralNetworkBuilder {
+        self.layers.push(Arc::new(Mutex::new(layer)));
         self
     }
 
@@ -53,11 +58,17 @@ impl NeuralNetworkBuilder {
         self
     }
 
+    pub fn with_cost_function(mut self, cost_function: CostFunction) -> Self {
+        self.cost_function = cost_function;
+        self
+    }
+
     pub fn build(self) -> Result<NeuralNetwork, NeuralNetworkError> {
         Ok(NeuralNetwork {
             layers: self.layers,
             epochs: self.epochs,
             learning_rate: self.learning_rate,
+            cost_function: self.cost_function,
         })
     }
 }
@@ -85,42 +96,71 @@ pub enum GradientDescentStrategy {
 /// * `epochs` - number of time the whole dataset will be used to train the network
 /// * `learning_rate` - gradient descent learning rate
 pub struct NeuralNetwork {
-    layers: Vec<Box<dyn Layer>>,
+    layers: Vec<Arc<Mutex<dyn Layer>>>,
     epochs: usize,
     learning_rate: f64,
+    cost_function: CostFunction,
 }
 
 impl NeuralNetwork {
     pub fn predict(&mut self, input: &Array2<f64>) -> Array2<f64> {
         let mut output = input.clone();
         for layer in &mut self.layers {
+            let mut layer = layer.lock().unwrap();
             output = layer.feed_forward(&output);
         }
         output
     }
 
-    /// Train the neural network
-    pub fn train(&mut self, x_train: Array3<f64>, y_train: Array3<f64>, cost: Cost) {
+    /// Train the neural network with Gradient descent algorithm
+    /// # Arguments
+    /// * `x_train` - a Array3 (shape (num_train_samples, i, n)) of training images
+    /// * `y_train` - a Array3 (shape (num_label_samples, j, 1)) of training label labels are
+    /// one-hot encoded.
+    /// * `cost` - cost function used to calcualte the error magnitude.
+    pub fn train(&mut self, x_train: Array3<f64>, y_train: Array3<f64>) {
         let output_shape = y_train.index_axis(Axis(0), 0).raw_dim();
-        for e in 0..self.epochs {
-            let mut error: Array2<f64> = Array2::zeros(output_shape);
+        let layers = self.layers.clone();
+        let learning_rate = self.learning_rate;
+        let cost_function = self.cost_function.clone();
+        let epochs = self.epochs;
 
-            // TODO handle multiple Gradient descent strategy
-            // TODO wrap function inside a GradientDescent method
-            for (x, y) in x_train.iter().zip(y_train.iter()) {
-                let output = &self.predict(x);
+        for e in 0..epochs {
+            let error = Arc::new(Mutex::new(Array2::zeros(output_shape)));
+            info!("Successfully passed through an epoch");
+            let count = Arc::new(AtomicUsize::new(0));
+            par_azip!((x in x_train.outer_iter(), y in y_train.outer_iter()) {
+                let (x, y) = (x.to_owned(), y.to_owned());
 
-                error += cost.cost(y, output);
+                let output = {
+                    let mut output = x.clone();
+                    for layer in &layers {
+                        let mut layer = layer.lock().unwrap();
+                        output = layer.feed_forward(&output);
+                    }
+                    output
+                };
 
-                let mut grad = cost.cost_output_gradient(y, output);
-
-                for layer in self.layers.iter_mut().rev() {
-                    grad = layer.propagate_backward(&grad, self.learning_rate);
+                let cost = cost_function.cost(&output, &y);
+                {
+                    let mut error_guard = error.lock().unwrap();
+                    *error_guard += cost;
                 }
-            }
 
-            error /= x_train.len() as f64;
-            info!("Epochs : {}, training_error : {}", e, error)
+                let mut grad = cost_function.cost_output_gradient(&y, &output);
+
+                for layer in layers.iter().rev() {
+                    let mut layer = layer.lock().unwrap();
+                    grad = layer.propagate_backward(&grad, learning_rate);
+                }
+
+                let index = count.fetch_add(1, Ordering::SeqCst);
+                info!("Processing item {}", index);
+            });
+
+            let error = Arc::try_unwrap(error).unwrap().into_inner().unwrap();
+            let error = error / x_train.len() as f64;
+            info!("Epochs : {}, training_error : {}", e, error);
         }
     }
 }

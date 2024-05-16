@@ -1,12 +1,16 @@
+use log::debug;
 use ndarray::Array2;
 
-pub enum Cost {
+use crate::layer::Softmax;
+
+#[derive(Clone)]
+pub enum CostFunction {
     /// The use case for CrossEntropy, is for our classification nn, taking
     /// softmax outputs and calcualting loss.
     CrossEntropy,
 }
 
-impl Cost {
+impl CostFunction {
     /// Compute the cost of the neural network
     /// # Arguments
     /// * `output` - the array (shape (j, 1)) of output of the network
@@ -37,7 +41,7 @@ impl Cost {
             // We use this expression over the one that give dc/ds with s the softmax output
             // because the calculation is easy and that prevent us for back propagating through the
             // softmax function
-            Self::CrossEntropy => output - observed,
+            Self::CrossEntropy => Softmax::transform(output) - observed,
         }
     }
 }

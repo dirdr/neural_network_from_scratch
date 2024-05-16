@@ -1,8 +1,26 @@
 use ndarray::Array2;
+use thiserror::Error;
 
 use crate::initialization::InitializerType;
 
+#[derive(Error, Debug)]
+enum LayerError {
+    #[error("Access to stored input of the layer before stored happened")]
+    IllegalInputAccess,
+}
+
 /// The `Layer` trait need to be implemented by any nn layer
+///
+// In this library, we use a 'Layer-activation decoupling' paradigm, where we seperate the 'Dense'
+// layers and the 'activation functions'.
+/// Instead of defining the activation function inside the layer's output calculation,
+/// a `ActivationLayer` is provided, that you will need to plug just after your layer.
+///
+/// This serve mulitple puropose, the first one is seperation of concerns, each layer handle his
+/// gradient and forward calculation, the second is to make it easy to have fully connected layer
+/// without activation function. The third reason is that we found that more instinctive and
+/// natural to implement
+
 /// a layer is defined as input nodes x and output nodes y
 /// feed forward calculate the output nodes y with respect to the input nodes x
 /// `propagate_backward` is responsible for two things :
@@ -10,7 +28,7 @@ use crate::initialization::InitializerType;
 /// 2: return the input gradient with respect to the output gradient,
 /// the second role is used to propagate partial derivative backward in the network.
 /// the layer inputs have shape (i, 1), layer outputs have shape (j, 1).
-pub trait Layer {
+pub trait Layer: Send + Sync {
     fn feed_forward(&mut self, input: &Array2<f64>) -> Array2<f64>;
 
     /// Return the input gradient vector (shape (i, 1)).
@@ -67,16 +85,22 @@ impl Layer for DenseLayer {
         output_gradient: &Array2<f64>,
         learning_rate: f64,
     ) -> Array2<f64> {
+        // Unwrap the input without cloning
         let input = self
             .input
-            .clone()
-            .unwrap_or_else(|| panic!("access to a unset input inside backproapgation"));
+            .as_ref()
+            .expect("access to an unset input inside backpropagation");
+
+        // Compute weight gradients
         let weights_gradient = output_gradient.dot(&input.t());
+
+        // Compute input gradients
         let input_gradient = self.weights.t().dot(output_gradient);
-        self.bias
-            .scaled_add(-1.0, &output_gradient.mapv(|e| e * learning_rate));
-        self.weights
-            .scaled_add(-1.0, &weights_gradient.mapv(|e| e * learning_rate));
+
+        // Update bias and weights with scaling and addition
+        self.bias.scaled_add(-learning_rate, output_gradient);
+        self.weights.scaled_add(-learning_rate, &weights_gradient);
+
         input_gradient
     }
 }
@@ -100,6 +124,7 @@ impl Layer for ActivationLayer {
     /// apply the activation fonction to each input (shape (i * 1))
     /// return an output vector of shape (i * 1).
     fn feed_forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
+        self.input = Some(input.clone());
         self.activation_type.apply(input)
     }
 
@@ -109,9 +134,9 @@ impl Layer for ActivationLayer {
     fn propagate_backward(&mut self, output_gradient: &Array2<f64>, _: f64) -> Array2<f64> {
         let input = self
             .input
-            .clone()
+            .as_ref()
             .unwrap_or_else(|| panic!("access to a unset input inside backproapgation"));
-        output_gradient * self.activation_type.derivative_apply(&input)
+        output_gradient * self.activation_type.derivative_apply(input)
     }
 }
 
@@ -120,14 +145,14 @@ impl Layer for ActivationLayer {
 /// backward through this, reason is that this layer is used between the logit and the cost function to
 /// normalize prediction probability, but we can easily calculate the gradient of the cost function with
 /// respect to the logits and thus we don't need to propagate anything through this.
-struct Softmax;
+pub struct Softmax;
 
 impl Softmax {
     /// Apply the softmax transformation to the input vector (shape (i, 1))
     /// return the probability distribution vector (shape (i, 1))
-    fn transform(&self, input: &Array2<f64>) -> Array2<f64> {
+    pub fn transform(input: &Array2<f64>) -> Array2<f64> {
         let max_logit = input.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        let sum_exps = input.clone().mapv(|e| f64::exp(e - max_logit)).sum();
+        let sum_exps = input.mapv(|e| f64::exp(e - max_logit)).sum();
         input.mapv(|e| f64::exp(e - max_logit) / sum_exps)
     }
 }
