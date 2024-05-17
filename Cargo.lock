@@ -328,6 +328,7 @@ dependencies = [
  "clap",
  "log",
  "mnist",
+ "ndarray",
  "nn_lib",
  "pretty_env_logger",
 ]

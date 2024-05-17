@@ -13,3 +13,5 @@ nn_lib = {path = "./nn_lib/"}
 mnist = {path = "./mnist/"}
 anyhow = "1.0.83"
 log = "0.4.21"
+ndarray = {version = "0.15.6", features = ["matrixmultiply-threading", "rayon"]}
+
