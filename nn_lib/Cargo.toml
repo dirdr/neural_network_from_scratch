@@ -2,7 +2,7 @@
 name = "nn_lib"
 version = "0.1.0"
 edition = "2021"
-author = ["Adrien Pelfresne", "Alexis Vapaille"]
+authors = ["Adrien Pelfresne", "Alexis Vapaille"]
 
 [dependencies]
 log = "0.4.21"

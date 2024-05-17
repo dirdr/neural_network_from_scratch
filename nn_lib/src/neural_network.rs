@@ -4,8 +4,9 @@ use std::sync::{
 };
 
 use crate::{cost::CostFunction, layer::Layer};
-use log::info;
+use log::{debug, info};
 use ndarray::{par_azip, Array2, Array3, Axis};
+use thiserror::Error;
 
 pub struct NeuralNetworkBuilder {
     layers: Vec<Arc<Mutex<dyn Layer>>>,
@@ -15,12 +16,14 @@ pub struct NeuralNetworkBuilder {
     cost_function: CostFunction,
 }
 
+#[derive(Error, Debug)]
 pub enum NeuralNetworkError {
+    #[error("Missing mandatory fields to build the network")]
     MissingMandatoryFields(String),
 }
 
 impl NeuralNetworkBuilder {
-    /// Create a new `NeuralNetorkBuilder` with the following default values :
+    /// Create a new `NeuralNetworkBuilder` with the following default values :
     /// * `learning_rate`: 0.1
     /// * `epochs`: 0.1
     /// * `gradient_descent_strategy`: MiniBatch
@@ -92,7 +95,7 @@ pub enum GradientDescentStrategy {
 /// a trainable `NeuralNetwork`
 /// # Fields
 /// * `layers` - A vector of layers (could be activation, convolutional, dense, etc..) in
-/// sequencial order
+/// sequential order
 /// * `epochs` - number of time the whole dataset will be used to train the network
 /// * `learning_rate` - gradient descent learning rate
 pub struct NeuralNetwork {
@@ -105,10 +108,10 @@ pub struct NeuralNetwork {
 impl NeuralNetwork {
     /// Train the neural network with Gradient descent algorithm
     /// # Arguments
-    /// * `x_train` - a Array3 (shape (num_train_samples, i, n)) of training images
-    /// * `y_train` - a Array3 (shape (num_label_samples, j, 1)) of training label labels are
+    /// * `x_train` - an Array3 (shape (num_train_samples, i, n)) of training images
+    /// * `y_train` - an Array3 (shape (num_label_samples, j, 1)) of training label labels are
     /// one-hot encoded.
-    /// * `cost` - cost function used to calcualte the error magnitude.
+    /// * `cost` - cost function used to calculate the error magnitude.
     pub fn train(&mut self, x_train: Array3<f64>, y_train: Array3<f64>) {
         let output_shape = y_train.index_axis(Axis(0), 0).raw_dim();
         let layers = self.layers.clone();
@@ -119,6 +122,7 @@ impl NeuralNetwork {
             let error = Arc::new(Mutex::new(Array2::zeros(output_shape)));
             info!("Successfully passed through an epoch");
             let count = Arc::new(AtomicUsize::new(0));
+
             par_azip!((x in x_train.outer_iter(), y in y_train.outer_iter()) {
                 let (x, y) = (x.to_owned(), y.to_owned());
 
@@ -129,6 +133,7 @@ impl NeuralNetwork {
                         let mut layer = layer.lock().unwrap();
                         output = layer.feed_forward(&output);
                     }
+                    debug!("{:?}", output);
                     output
                 };
 

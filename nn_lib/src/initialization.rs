@@ -7,10 +7,10 @@ pub enum InitializerType {
 }
 
 impl InitializerType {
-    /// Initialize a new Matrice and fillis it according to the `InitializerType`
+    /// Initialize a new Matrices and fills it according to the `InitializerType`
     /// # Arguments
     /// * `input_size` - The number of input for the initialized layer
-    /// * `shape` - output matrice shape.
+    /// * `shape` - output matrices shape
     pub fn initialize(&self, input_size: usize, shape: (usize, usize)) -> Array2<f64> {
         match self {
             InitializerType::He => {

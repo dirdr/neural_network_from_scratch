@@ -2,7 +2,7 @@
 name = "mnist"
 version = "0.1.0"
 edition = "2021"
-author = ["Adrien Pelfresne", "Alexis Vapaille"]
+authors = ["Adrien Pelfresne", "Alexis Vapaille"]
 
 [dependencies]
 byteorder = "1.5.0"

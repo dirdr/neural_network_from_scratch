@@ -27,7 +27,7 @@ pub fn build_network() -> anyhow::Result<()> {
 
     // todo sincder build network et train
     if let Ok(mut network) = network {
-        // for the simple MLP perceptronn reshape the input images as a single column matrice of
+        // for the simple MLP perceptron reshape the input images as a single column matrices of
         // shape (28*28, 1);
         let input_train = data_set.training.0.mapv(|e| e as f64);
         let output_train = data_set.training.1.mapv(|e| e as f64);

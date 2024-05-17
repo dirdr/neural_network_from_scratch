@@ -11,12 +11,12 @@ enum LayerError {
 
 /// The `Layer` trait need to be implemented by any nn layer
 ///
-// In this library, we use a 'Layer-activation decoupling' paradigm, where we seperate the 'Dense'
+// In this library, we use a 'Layer-activation decoupling' paradigm, where we separate the 'Dense'
 // layers and the 'activation functions'.
 /// Instead of defining the activation function inside the layer's output calculation,
 /// a `ActivationLayer` is provided, that you will need to plug just after your layer.
 ///
-/// This serve mulitple puropose, the first one is seperation of concerns, each layer handle his
+/// This serve multiple purpose, the first one is separation of concerns, each layer handle his
 /// gradient and forward calculation, the second is to make it easy to have fully connected layer
 /// without activation function. The third reason is that we found that more instinctive and
 /// natural to implement
@@ -43,11 +43,11 @@ pub trait Layer: Send + Sync {
 }
 
 /// `Dense` Layer (ie: Fully connected layer)
-/// weights matrice follow the convension output first
+/// weights matrices follow the conversion output first
 /// weights_ji connect output node y_j to input node x_i
 /// bias b_i is for the calculation of output node y_i
 pub struct DenseLayer {
-    /// shape (j, i) matrice of weights, w_ji connect node j to node i.
+    /// shape (j, i) matrices of weights, w_ji connect node j to node i.
     weights: Array2<f64>,
     /// shape (j, 1) vector of bias
     bias: Array2<f64>,
@@ -121,7 +121,7 @@ impl ActivationLayer {
 }
 
 impl Layer for ActivationLayer {
-    /// apply the activation fonction to each input (shape (i * 1))
+    /// apply the activation function to each input (shape (i * 1))
     /// return an output vector of shape (i * 1).
     fn feed_forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
         self.input = Some(input.clone());
@@ -142,9 +142,9 @@ impl Layer for ActivationLayer {
 
 /// The `SoftmaxLayer` is used just before the output to normalize probability of the logits.
 /// This doesn't impl the `Layer` trait because we don't need to propagate the cost gradient
-/// backward through this, reason is that this layer is used between the logit and the cost function to
+/// backward through this, reason is that this layer is used between the logits and the cost function to
 /// normalize prediction probability, but we can easily calculate the gradient of the cost function with
-/// respect to the logits and thus we don't need to propagate anything through this.
+/// respect to the logits, and thus we don't need to propagate anything through this.
 pub struct Softmax;
 
 impl Softmax {

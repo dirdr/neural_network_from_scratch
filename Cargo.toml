@@ -4,7 +4,7 @@ workspace = { members = [ "mnist", "nn_lib"] }
 name = "nn_from_scratch"
 version = "0.1.0"
 edition = "2021"
-author = ["Adrien Pelfresne", "Alexis Vapaille"]
+authors = ["Adrien Pelfresne", "Alexis Vapaille"]
 
 [dependencies]
 clap = "4.5.4"

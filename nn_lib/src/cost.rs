@@ -5,8 +5,9 @@ use crate::layer::Softmax;
 #[derive(Copy, Clone)]
 pub enum CostFunction {
     /// The use case for CrossEntropy, is for our classification nn, taking
-    /// softmax outputs and calcualting loss.
+    /// softmax outputs and calculating loss.
     CrossEntropy,
+    Mse,
 }
 
 impl CostFunction {
@@ -16,6 +17,10 @@ impl CostFunction {
     /// * `observed` - a one hotted encoded vector of observed values
     pub fn cost(&self, output: &Array2<f64>, observed: &Array2<f64>) -> f64 {
         match self {
+            Self::Mse => {
+                let diff = output - observed;
+                diff.mapv(|x| x.powi(2)).sum() / (output.len() as f64)
+            }
             Self::CrossEntropy => {
                 let epsilon = 1e-15;
                 let clipped_output = output.mapv(|x| x.clamp(epsilon, 1.0 - epsilon));
@@ -35,12 +40,13 @@ impl CostFunction {
         observed: &Array2<f64>,
     ) -> Array2<f64> {
         match self {
-            // the gradient of the cross entropy with respect to the logit
+            // the gradient of the cross entropy with respect to the logits
             // is given by : dc/dz = s - y in vector notation.
             // We use this expression over the one that give dc/ds with s the softmax output
             // because the calculation is easy and that prevent us for back propagating through the
             // softmax function
             Self::CrossEntropy => Softmax::transform(output) - observed,
+            Self::Mse => 2f64 * (output - observed) / output.len() as f64,
         }
     }
 }
