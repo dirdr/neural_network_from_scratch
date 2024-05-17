@@ -1,4 +1,5 @@
 use ndarray::Array2;
+use num_traits::{Float, Pow};
 use thiserror::Error;
 
 use crate::initialization::InitializerType;
@@ -159,6 +160,7 @@ impl Softmax {
 
 pub enum ActivationType {
     ReLU,
+    Tanh,
 }
 
 impl ActivationType {
@@ -166,13 +168,15 @@ impl ActivationType {
     fn apply(&self, input: &Array2<f64>) -> Array2<f64> {
         match self {
             Self::ReLU => input.mapv(|e| 0f64.max(e)),
+            Self::Tanh => input.mapv(|e| e.tanh()),
         }
     }
 
     /// Apply the derivative
     fn derivative_apply(&self, input: &Array2<f64>) -> Array2<f64> {
         match self {
-            Self::ReLU => input.mapv(|e| if e >= 0f64 { 1f64 } else { 0f64 }),
+            Self::ReLU => input.mapv(|e| if e > 0f64 { 1f64 } else { 0f64 }),
+            Self::Tanh => input.mapv(|e| 1f64 - e.tanh().pow(2)),
         }
     }
 }

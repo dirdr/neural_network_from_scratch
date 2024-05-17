@@ -1,4 +1,5 @@
 use nn_lib::{
+    cost::CostFunction,
     initialization::InitializerType,
     layer::{ActivationLayer, ActivationType, DenseLayer, Layer},
     neural_network::{NeuralNetwork, NeuralNetworkBuilder},
@@ -12,11 +13,11 @@ struct Xor;
 impl Xor {
     fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
         Ok(NeuralNetworkBuilder::new()
-            .push_layer(2, 1, InitializerType::He)
+            .push_layer(DenseLayer::new(2, 1, InitializerType::He))
             .push_layer(ActivationLayer::from(ActivationType::ReLU))
-            .with_cost_function(cost_function)
+            .with_cost_function(CostFunction::Mse)
             .with_learning_rate(0.1)
-            .with_epochs(0.1)
+            .with_epochs(100)
             .build()?)
     }
 }
