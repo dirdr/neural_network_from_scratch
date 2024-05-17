@@ -96,6 +96,12 @@ pub enum GradientDescentStrategy {
 /// # Fields
 /// * `layers` - A vector of layers (could be activation, convolutional, dense, etc..) in
 /// sequential order
+/// note that this crate dont use autodijff, so if you are planning to use a neural net architecture
+/// with cross entropy, or binary cross entropy, the network make and use the assumption of
+/// softmax, and sigmoid activation function respectively just before the cost function.
+/// Thus you don't need to include it in the layers. However if you use any kind of independant
+/// cost function (like mse) you can include whatever activation function you wan't after the
+/// output because the gradient calculation is independant of the last layer you choose.
 /// * `epochs` - number of time the whole dataset will be used to train the network
 /// * `learning_rate` - gradient descent learning rate
 pub struct NeuralNetwork {
@@ -106,12 +112,24 @@ pub struct NeuralNetwork {
 }
 
 impl NeuralNetwork {
+    /// predict from the neural network
+    /// the shape of the prediction is defined by the neural net's last layer shape.
+    /// # Arguments
+    /// * `input` : the input of the neural network.
+    pub fn predict(&self, input: Array2<f64>) -> Array2<f64> {
+        let mut output = input.clone();
+        for layer in &self.layers {
+            let mut layer = layer.lock().unwrap();
+            output = layer.feed_forward(&output);
+        }
+        output
+    }
+
     /// Train the neural network with Gradient descent algorithm
     /// # Arguments
     /// * `x_train` - an Array3 (shape (num_train_samples, i, n)) of training images
     /// * `y_train` - an Array3 (shape (num_label_samples, j, 1)) of training label labels are
     /// one-hot encoded.
-    /// * `cost` - cost function used to calculate the error magnitude.
     pub fn train(&mut self, x_train: Array3<f64>, y_train: Array3<f64>) {
         let output_shape = y_train.index_axis(Axis(0), 0).raw_dim();
         let layers = self.layers.clone();
@@ -120,7 +138,6 @@ impl NeuralNetwork {
         let epochs = self.epochs;
         for e in 0..epochs {
             let error = Arc::new(Mutex::new(Array2::zeros(output_shape)));
-            info!("Successfully passed through an epoch");
             let count = Arc::new(AtomicUsize::new(0));
 
             par_azip!((x in x_train.outer_iter(), y in y_train.outer_iter()) {
@@ -133,7 +150,6 @@ impl NeuralNetwork {
                         let mut layer = layer.lock().unwrap();
                         output = layer.feed_forward(&output);
                     }
-                    debug!("{:?}", output);
                     output
                 };
 
@@ -154,7 +170,6 @@ impl NeuralNetwork {
                 }
 
                 let index = count.fetch_add(1, Ordering::SeqCst);
-                info!("Processing training sample {}", index);
             });
 
             let error = Arc::try_unwrap(error).unwrap().into_inner().unwrap();

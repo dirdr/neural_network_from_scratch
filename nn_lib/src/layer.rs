@@ -1,5 +1,5 @@
 use ndarray::Array2;
-use num_traits::{Float, Pow};
+use num_traits::Pow;
 use thiserror::Error;
 
 use crate::initialization::InitializerType;
@@ -53,6 +53,7 @@ pub struct DenseLayer {
     /// shape (j, 1) vector of bias
     bias: Array2<f64>,
     /// input passed during the feed forward step
+    // TODO utiliser un Arc pour stocker mon machin
     input: Option<Array2<f64>>,
 }
 
@@ -61,8 +62,8 @@ impl DenseLayer {
     /// initialization parameters
     pub fn new(input_size: usize, output_size: usize, init: InitializerType) -> Self {
         Self {
-            weights: init.initialize(input_size, (output_size, input_size)),
-            bias: init.initialize(input_size, (output_size, 1)),
+            weights: init.initialize(input_size, output_size, (output_size, input_size)),
+            bias: init.initialize(input_size, output_size, (output_size, 1)),
             input: None,
         }
     }
@@ -126,7 +127,8 @@ impl Layer for ActivationLayer {
     /// return an output vector of shape (i * 1).
     fn feed_forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
         self.input = Some(input.clone());
-        self.activation_type.apply(input)
+        self.activation_type
+            .map_vector(input, FunctionType::Original)
     }
 
     /// return the input gradient with respect to the activation layer output gradient
@@ -137,7 +139,10 @@ impl Layer for ActivationLayer {
             .input
             .as_ref()
             .unwrap_or_else(|| panic!("access to a unset input inside backproapgation"));
-        output_gradient * self.activation_type.derivative_apply(input)
+        output_gradient
+            * self
+                .activation_type
+                .map_vector(input, FunctionType::Original)
     }
 }
 
@@ -161,22 +166,41 @@ impl Softmax {
 pub enum ActivationType {
     ReLU,
     Tanh,
+    Sigmoid,
+}
+
+pub enum FunctionType {
+    Original,
+    Derivative,
 }
 
 impl ActivationType {
-    /// Apply an activation function to the given input
-    fn apply(&self, input: &Array2<f64>) -> Array2<f64> {
+    pub fn apply(&self, x: f64) -> f64 {
         match self {
-            Self::ReLU => input.mapv(|e| 0f64.max(e)),
-            Self::Tanh => input.mapv(|e| e.tanh()),
+            Self::ReLU => 0f64.max(x),
+            Self::Tanh => x.tanh(),
+            Self::Sigmoid => 1.0 / (1.0 + f64::exp(-x)),
         }
     }
 
-    /// Apply the derivative
-    fn derivative_apply(&self, input: &Array2<f64>) -> Array2<f64> {
+    pub fn apply_derivative(&self, x: f64) -> f64 {
         match self {
-            Self::ReLU => input.mapv(|e| if e > 0f64 { 1f64 } else { 0f64 }),
-            Self::Tanh => input.mapv(|e| 1f64 - e.tanh().pow(2)),
+            Self::ReLU => {
+                if x > 0f64 {
+                    1f64
+                } else {
+                    0f64
+                }
+            }
+            Self::Tanh => 1f64 - x.tanh().pow(2),
+            Self::Sigmoid => self.apply(x) * (1.0 - self.apply(x)),
+        }
+    }
+
+    pub fn map_vector(&self, input: &Array2<f64>, fn_type: FunctionType) -> Array2<f64> {
+        match fn_type {
+            FunctionType::Original => input.mapv(|e| self.apply(e)),
+            FunctionType::Derivative => input.mapv(|e| self.apply_derivative(e)),
         }
     }
 }

@@ -1,12 +1,13 @@
 use ndarray::Array2;
 
-use crate::layer::Softmax;
+use crate::layer::{ActivationType, FunctionType, Softmax};
 
 #[derive(Copy, Clone)]
 pub enum CostFunction {
     /// The use case for CrossEntropy, is for our classification nn, taking
     /// softmax outputs and calculating loss.
     CrossEntropy,
+    BinaryCrossEntropy,
     Mse,
 }
 
@@ -17,20 +18,31 @@ impl CostFunction {
     /// * `observed` - a one hotted encoded vector of observed values
     pub fn cost(&self, output: &Array2<f64>, observed: &Array2<f64>) -> f64 {
         match self {
-            Self::Mse => {
-                let diff = output - observed;
-                diff.mapv(|x| x.powi(2)).sum() / (output.len() as f64)
-            }
             Self::CrossEntropy => {
                 let epsilon = 1e-15;
                 let clipped_output = output.mapv(|x| x.clamp(epsilon, 1.0 - epsilon));
                 let correct_class = observed.iter().position(|&x| x == 1.0).unwrap();
                 -f64::ln(clipped_output[[correct_class, 0]])
             }
+            Self::BinaryCrossEntropy => {
+                let epsilon = 1e-15;
+                let clipped_output = output.mapv(|x| x.clamp(epsilon, 1.0 - epsilon));
+                let log_loss = observed * &clipped_output.mapv(f64::ln)
+                    + (1.0 - observed) * &((1.0 - clipped_output).mapv(f64::ln));
+                -log_loss.mean().unwrap()
+            }
+            Self::Mse => {
+                let diff = output - observed;
+                diff.mapv(|x| x.powi(2)).sum() / (output.len() as f64)
+            }
         }
     }
 
     /// Compute and return the gradient of the cost function (shape (j, 1)) with respect to `output`
+    /// Note that this simple, from scratch library, don't use auto-differentiation
+    /// so for : `BinaryCrossEntropy` the calculation use a Sigmoid activation function as the last
+    /// layer, and for `CrossEntropy` the calculation use a Softmax activation function as the last
+    /// layer
     /// # Arguments
     /// * `output` - the array (shape (j, 1)) of output of the network
     /// * `observed` - a one hotted encoded vector of observed values
@@ -46,7 +58,44 @@ impl CostFunction {
             // because the calculation is easy and that prevent us for back propagating through the
             // softmax function
             Self::CrossEntropy => Softmax::transform(output) - observed,
+            Self::BinaryCrossEntropy => {
+                let last_activation = ActivationType::Sigmoid;
+                last_activation.map_vector(output, FunctionType::Original) - observed
+            }
             Self::Mse => 2f64 * (output - observed) / output.len() as f64,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn test_cross_entropy() {
+        let output = array![[0.7], [0.2], [0.1]];
+        let observed = array![[0.0], [1.0], [0.0]];
+        let cost_function = CostFunction::CrossEntropy;
+        let cost = cost_function.cost(&output, &observed);
+        assert!(cost.is_finite());
+    }
+
+    #[test]
+    fn test_binary_cross_entropy() {
+        let output = array![[0.7], [0.2], [0.1]];
+        let observed = array![[0.0], [1.0], [0.0]];
+        let cost_function = CostFunction::BinaryCrossEntropy;
+        let cost = cost_function.cost(&output, &observed);
+        assert!(cost.is_finite());
+    }
+
+    #[test]
+    fn test_mse() {
+        let output = array![[0.7], [0.2], [0.1]];
+        let observed = array![[0.0], [1.0], [0.0]];
+        let cost_function = CostFunction::Mse;
+        let cost = cost_function.cost(&output, &observed);
+        assert!(cost.is_finite());
     }
 }

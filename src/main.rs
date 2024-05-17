@@ -2,6 +2,7 @@ mod xor;
 
 fn main() -> anyhow::Result<()> {
     pretty_env_logger::init();
-    mnist::build_network()?;
+    let net = xor::build_neural_net()?;
+    xor::start(net)?;
     Ok(())
 }
