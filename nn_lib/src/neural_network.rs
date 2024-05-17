@@ -103,15 +103,6 @@ pub struct NeuralNetwork {
 }
 
 impl NeuralNetwork {
-    pub fn predict(&mut self, input: &Array2<f64>) -> Array2<f64> {
-        let mut output = input.clone();
-        for layer in &mut self.layers {
-            let mut layer = layer.lock().unwrap();
-            output = layer.feed_forward(&output);
-        }
-        output
-    }
-
     /// Train the neural network with Gradient descent algorithm
     /// # Arguments
     /// * `x_train` - a Array3 (shape (num_train_samples, i, n)) of training images
@@ -122,9 +113,8 @@ impl NeuralNetwork {
         let output_shape = y_train.index_axis(Axis(0), 0).raw_dim();
         let layers = self.layers.clone();
         let learning_rate = self.learning_rate;
-        let cost_function = self.cost_function.clone();
+        let cost_function = self.cost_function;
         let epochs = self.epochs;
-
         for e in 0..epochs {
             let error = Arc::new(Mutex::new(Array2::zeros(output_shape)));
             info!("Successfully passed through an epoch");
@@ -132,6 +122,7 @@ impl NeuralNetwork {
             par_azip!((x in x_train.outer_iter(), y in y_train.outer_iter()) {
                 let (x, y) = (x.to_owned(), y.to_owned());
 
+                // feed forward
                 let output = {
                     let mut output = x.clone();
                     for layer in &layers {
@@ -141,21 +132,24 @@ impl NeuralNetwork {
                     output
                 };
 
+                // cost evaluation
                 let cost = cost_function.cost(&output, &y);
                 {
                     let mut error_guard = error.lock().unwrap();
                     *error_guard += cost;
                 }
 
+                // first cost function gradient
                 let mut grad = cost_function.cost_output_gradient(&y, &output);
 
+                // back propagation (weight and bias update)
                 for layer in layers.iter().rev() {
                     let mut layer = layer.lock().unwrap();
                     grad = layer.propagate_backward(&grad, learning_rate);
                 }
 
                 let index = count.fetch_add(1, Ordering::SeqCst);
-                info!("Processing item {}", index);
+                info!("Processing training sample {}", index);
             });
 
             let error = Arc::try_unwrap(error).unwrap().into_inner().unwrap();

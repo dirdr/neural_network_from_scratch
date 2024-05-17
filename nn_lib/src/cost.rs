@@ -1,9 +1,8 @@
-use log::debug;
 use ndarray::Array2;
 
 use crate::layer::Softmax;
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub enum CostFunction {
     /// The use case for CrossEntropy, is for our classification nn, taking
     /// softmax outputs and calcualting loss.
