@@ -1,8 +1,7 @@
 use ndarray::Array2;
-use num_traits::Pow;
 use thiserror::Error;
 
-use crate::initialization::InitializerType;
+use crate::{activations::Activation, initialization::InitializerType};
 
 #[derive(Error, Debug)]
 enum LayerError {
@@ -109,14 +108,14 @@ impl Layer for DenseLayer {
 
 /// The `ActivationLayer` apply a activation function to it's input node to yield the output nodes.
 pub struct ActivationLayer {
-    pub activation_type: ActivationType,
+    pub activation: Activation,
     pub input: Option<Array2<f64>>,
 }
 
 impl ActivationLayer {
-    pub fn from(activation_type: ActivationType) -> Self {
+    pub fn from(activation: Activation) -> Self {
         Self {
-            activation_type,
+            activation,
             input: None,
         }
     }
@@ -127,8 +126,7 @@ impl Layer for ActivationLayer {
     /// return an output vector of shape (i * 1).
     fn feed_forward(&mut self, input: &Array2<f64>) -> Array2<f64> {
         self.input = Some(input.clone());
-        self.activation_type
-            .map_vector(input, FunctionType::Original)
+        self.activation.apply(input)
     }
 
     /// return the input gradient with respect to the activation layer output gradient
@@ -139,68 +137,6 @@ impl Layer for ActivationLayer {
             .input
             .as_ref()
             .unwrap_or_else(|| panic!("access to a unset input inside backproapgation"));
-        output_gradient
-            * self
-                .activation_type
-                .map_vector(input, FunctionType::Original)
-    }
-}
-
-/// The `SoftmaxLayer` is used just before the output to normalize probability of the logits.
-/// This doesn't impl the `Layer` trait because we don't need to propagate the cost gradient
-/// backward through this, reason is that this layer is used between the logits and the cost function to
-/// normalize prediction probability, but we can easily calculate the gradient of the cost function with
-/// respect to the logits, and thus we don't need to propagate anything through this.
-pub struct Softmax;
-
-impl Softmax {
-    /// Apply the softmax transformation to the input vector (shape (i, 1))
-    /// return the probability distribution vector (shape (i, 1))
-    pub fn transform(input: &Array2<f64>) -> Array2<f64> {
-        let max_logit = input.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        let sum_exps = input.mapv(|e| f64::exp(e - max_logit)).sum();
-        input.mapv(|e| f64::exp(e - max_logit) / sum_exps)
-    }
-}
-
-pub enum ActivationType {
-    ReLU,
-    Tanh,
-    Sigmoid,
-}
-
-pub enum FunctionType {
-    Original,
-    Derivative,
-}
-
-impl ActivationType {
-    pub fn apply(&self, x: f64) -> f64 {
-        match self {
-            Self::ReLU => 0f64.max(x),
-            Self::Tanh => x.tanh(),
-            Self::Sigmoid => 1.0 / (1.0 + f64::exp(-x)),
-        }
-    }
-
-    pub fn apply_derivative(&self, x: f64) -> f64 {
-        match self {
-            Self::ReLU => {
-                if x > 0f64 {
-                    1f64
-                } else {
-                    0f64
-                }
-            }
-            Self::Tanh => 1f64 - x.tanh().pow(2),
-            Self::Sigmoid => self.apply(x) * (1.0 - self.apply(x)),
-        }
-    }
-
-    pub fn map_vector(&self, input: &Array2<f64>, fn_type: FunctionType) -> Array2<f64> {
-        match fn_type {
-            FunctionType::Original => input.mapv(|e| self.apply(e)),
-            FunctionType::Derivative => input.mapv(|e| self.apply_derivative(e)),
-        }
+        output_gradient * self.activation.apply_derivative(input)
     }
 }

@@ -1,6 +1,6 @@
 use ndarray::Array2;
 
-use crate::layer::{ActivationType, FunctionType, Softmax};
+use crate::activations::Activation;
 
 #[derive(Copy, Clone)]
 pub enum CostFunction {
@@ -12,6 +12,20 @@ pub enum CostFunction {
 }
 
 impl CostFunction {
+    /// This crate don't use any kind of auto diff mechanism,
+    /// thus, for function like BinaryCrossEntropy and CrossEntropy that need clamped output,
+    /// we assume Sigmoid and Softmax respectively as the output activation layer.
+    /// the gradient calculation is done with those activation function in mind.
+    /// Those function are called 'Output dependant' to constrast with function like Mse, of which
+    /// the derivative can be easily calculated with respect to any output layer, because it
+    /// doesn't need clamped output.
+    pub fn output_dependant(&self) -> bool {
+        match self {
+            Self::BinaryCrossEntropy | Self::CrossEntropy => true,
+            Self::Mse => false,
+        }
+    }
+
     /// Compute the cost of the neural network
     /// # Arguments
     /// * `output` - the array (shape (j, 1)) of output of the network
@@ -33,7 +47,7 @@ impl CostFunction {
             }
             Self::Mse => {
                 let diff = output - observed;
-                diff.mapv(|x| x.powi(2)).sum() / (output.len() as f64)
+                diff.mapv(|x| x.powi(2)).mean().unwrap()
             }
         }
     }
@@ -57,10 +71,13 @@ impl CostFunction {
             // We use this expression over the one that give dc/ds with s the softmax output
             // because the calculation is easy and that prevent us for back propagating through the
             // softmax function
-            Self::CrossEntropy => Softmax::transform(output) - observed,
+            Self::CrossEntropy => {
+                let softmax = Activation::Softmax;
+                softmax.apply(output) - observed
+            }
             Self::BinaryCrossEntropy => {
-                let last_activation = ActivationType::Sigmoid;
-                last_activation.map_vector(output, FunctionType::Original) - observed
+                let sigmoid = Activation::Sigmoid;
+                sigmoid.apply(output) - observed
             }
             Self::Mse => 2f64 * (output - observed) / output.len() as f64,
         }

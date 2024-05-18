@@ -1,8 +1,6 @@
 use ndarray::Array2;
 use nn_lib::{
-    cost::CostFunction,
-    initialization::InitializerType,
-    layer::{self, ActivationType},
+    activations::Activation, cost::CostFunction, initialization::InitializerType, layer,
     neural_network::NeuralNetworkBuilder,
 };
 
@@ -18,7 +16,7 @@ pub fn build_network() -> anyhow::Result<()> {
 
     let network = NeuralNetworkBuilder::new()
         .push_layer(layer::DenseLayer::new(28 * 28, 256, InitializerType::He))
-        .push_layer(layer::ActivationLayer::from(ActivationType::ReLU))
+        .push_layer(layer::ActivationLayer::from(Activation::ReLU))
         .push_layer(layer::DenseLayer::new(256, 10, InitializerType::He))
         .with_cost_function(CostFunction::CrossEntropy)
         .with_learning_rate(0.1)
@@ -50,7 +48,7 @@ pub fn build_network() -> anyhow::Result<()> {
             .into_shape((output_train.len(), number_of_class, 1))
             .expect("failed to reshape one hot encoded vector");
 
-        network.train(input_train, output_train);
+        network.train_par(input_train, output_train);
     }
 
     Ok(())

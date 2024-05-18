@@ -1,11 +1,8 @@
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc, Mutex,
-};
+use std::sync::{Arc, Mutex};
 
 use crate::{cost::CostFunction, layer::Layer};
-use log::{debug, info};
-use ndarray::{par_azip, Array2, Array3, Axis};
+use log::info;
+use ndarray::{par_azip, Array2, Array3};
 use thiserror::Error;
 
 pub struct NeuralNetworkBuilder {
@@ -19,7 +16,13 @@ pub struct NeuralNetworkBuilder {
 #[derive(Error, Debug)]
 pub enum NeuralNetworkError {
     #[error("Missing mandatory fields to build the network")]
-    MissingMandatoryFields(String),
+    MissingMandatoryFields,
+
+    #[error(
+        "Invalid output activation layer,
+        see CostFunction::output_dependant for detailed explanation. provided : {0}"
+    )]
+    WrongOutputActivationLayer(String),
 }
 
 impl NeuralNetworkBuilder {
@@ -130,20 +133,20 @@ impl NeuralNetwork {
     /// * `x_train` - an Array3 (shape (num_train_samples, i, n)) of training images
     /// * `y_train` - an Array3 (shape (num_label_samples, j, 1)) of training label labels are
     /// one-hot encoded.
-    pub fn train(&mut self, x_train: Array3<f64>, y_train: Array3<f64>) {
-        let output_shape = y_train.index_axis(Axis(0), 0).raw_dim();
+    pub fn train_par(&mut self, x_train: Array3<f64>, y_train: Array3<f64>) {
         let layers = self.layers.clone();
         let learning_rate = self.learning_rate;
         let cost_function = self.cost_function;
         let epochs = self.epochs;
+
         for e in 0..epochs {
-            let error = Arc::new(Mutex::new(Array2::zeros(output_shape)));
-            let count = Arc::new(AtomicUsize::new(0));
+            let error = Arc::new(Mutex::new(0.0));
 
             par_azip!((x in x_train.outer_iter(), y in y_train.outer_iter()) {
                 let (x, y) = (x.to_owned(), y.to_owned());
 
-                // feed forward
+
+                // Feed forward
                 let output = {
                     let mut output = x.clone();
                     for layer in &layers {
@@ -153,28 +156,26 @@ impl NeuralNetwork {
                     output
                 };
 
-                // cost evaluation
+                // Cost evaluation
                 let cost = cost_function.cost(&output, &y);
                 {
                     let mut error_guard = error.lock().unwrap();
                     *error_guard += cost;
                 }
 
-                // first cost function gradient
-                let mut grad = cost_function.cost_output_gradient(&y, &output);
+                // First cost function gradient
+                let mut grad = cost_function.cost_output_gradient(&output, &y);
 
-                // back propagation (weight and bias update)
+                // Back propagation (weight and bias update)
                 for layer in layers.iter().rev() {
                     let mut layer = layer.lock().unwrap();
                     grad = layer.propagate_backward(&grad, learning_rate);
                 }
-
-                let index = count.fetch_add(1, Ordering::SeqCst);
             });
 
-            let error = Arc::try_unwrap(error).unwrap().into_inner().unwrap();
-            let error = error / x_train.len() as f64;
-            info!("Epochs : {}, training_error : {}", e, error);
+            let error =
+                Arc::try_unwrap(error).unwrap().into_inner().unwrap() / x_train.len() as f64;
+            info!("Epoch {}: training error = {}", e, error);
         }
     }
 }
