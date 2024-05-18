@@ -1,7 +1,7 @@
 use log::info;
 use ndarray::{Array2, Array3};
 use nn_lib::{
-    activations::Activation,
+    activation::Activation,
     cost::CostFunction,
     initialization::InitializerType,
     layer::{ActivationLayer, DenseLayer},

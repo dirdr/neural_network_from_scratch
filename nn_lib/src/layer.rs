@@ -1,7 +1,7 @@
 use ndarray::Array2;
 use thiserror::Error;
 
-use crate::{activations::Activation, initialization::InitializerType};
+use crate::{activation::Activation, initialization::InitializerType};
 
 #[derive(Error, Debug)]
 enum LayerError {

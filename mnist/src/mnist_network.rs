@@ -1,6 +1,6 @@
 use ndarray::Array2;
 use nn_lib::{
-    activations::Activation,
+    activation::Activation,
     cost::CostFunction,
     initialization::InitializerType,
     layer::{self, DenseLayer},

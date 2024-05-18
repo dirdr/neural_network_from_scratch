@@ -1,6 +1,6 @@
 use ndarray::Array2;
 
-use crate::activations::Activation;
+use crate::activation::Activation;
 
 #[derive(Copy, Clone)]
 pub enum CostFunction {

@@ -70,8 +70,8 @@ impl Default for NeuralNetworkBuilder {
 /// Thus you don't need to include it in the layers. However if you use any kind of independant
 /// cost function (like mse) you can include whatever activation function you wan't after the
 /// output because the gradient calculation is independant of the last layer you choose.
-/// * `epochs` - number of time the whole dataset will be used to train the network
-/// * `learning_rate` - gradient descent learning rate
+/// * cost_function - TODO
+/// * optimoizer - TODO
 pub struct NeuralNetwork {
     layers: Vec<Arc<Mutex<dyn Layer>>>,
     cost_function: CostFunction,
