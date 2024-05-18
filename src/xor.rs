@@ -14,8 +14,10 @@ pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
         .push(DenseLayer::new(2, 16, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(16, 1, InitializerType::GlorotUniform))
+        // TODO gérer pour les fonctions de couts "output Dependant" ne pas prendre en compte la
+        // dernière activation
         .push(ActivationLayer::from(Activation::Sigmoid))
-        .build(GradientDescent::new(0.1), CostFunction::Mse)?)
+        .build(GradientDescent::new(0.1), CostFunction::BinaryCrossEntropy)?)
 }
 
 fn get_training_data() -> (Array3<f64>, Array3<f64>) {

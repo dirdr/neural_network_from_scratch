@@ -9,6 +9,19 @@ enum LayerError {
     IllegalInputAccess,
 }
 
+/// Hold the needed data to the back propagation algorithm
+/// `input_gradient` is the gradient of the cost function with respect to the input of the layer
+/// `trainable_parameters` is the layer parameters, fe: weights and biases for `DenseLayer`
+/// `trainable_parameters_gradient` are the gradient with repsect to the trainable parameters with
+/// a 1:1 match (paramsgrad[i] = grad(params[i]))
+/// Note that the params and gradient params are Option as some layer don't have any trainable
+/// parameters, e.g: `ActivationLayer`
+struct BackpropagationResiduals {
+    input_gradient: Array2<f64>,
+    trainable_parameters: Option<Array2<f64>>,
+    trainable_parameters_gradient: Option<Array2<f64>>,
+}
+
 /// The `Layer` trait need to be implemented by any nn layer
 ///
 // In this library, we use a 'Layer-activation decoupling' paradigm, where we separate the 'Dense'
@@ -31,14 +44,14 @@ enum LayerError {
 pub trait Layer: Send + Sync {
     fn feed_forward(&mut self, input: &Array2<f64>) -> Array2<f64>;
 
-    /// Return the input gradient vector (shape (i, 1)).
+    /// Return the gradient of the cost function with respecct to the layer input values
     /// # Arguments
-    /// * `input` - Vector of input (shape (i, 1))
     /// * `output_gradient` - Output gradient vector shape (j, 1))
     fn propagate_backward(
         &mut self,
         output_gradient: &Array2<f64>,
-        learning_rate: f64,
+        // TODO peut être modifier ca avec les réseaux convo on est pas sur que la dimension des
+        // paramètres entraibles sont les mêmes
     ) -> Array2<f64>;
 }
 
@@ -54,6 +67,15 @@ pub struct DenseLayer {
     /// input passed during the feed forward step
     // TODO utiliser un Arc pour stocker mon machin
     input: Option<Array2<f64>>,
+    // store those for optimizer access (from the trait Trainable)
+    weights_gradient: Option<Array2<f64>>,
+    biases_gradient: Option<Array2<f64>>,
+}
+
+pub trait Trainable {
+    fn get_parameters(&self) -> Vec<Array2<f64>>;
+    fn get_parameters_mut(&mut self) -> Vec<&mut Array2<f64>>;
+    fn get_gradients(&self) -> Vec<Array2<f64>>;
 }
 
 impl DenseLayer {
@@ -64,6 +86,8 @@ impl DenseLayer {
             weights: init.initialize(input_size, output_size, (output_size, input_size)),
             bias: init.initialize(input_size, output_size, (output_size, 1)),
             input: None,
+            weights_gradient: None,
+            biases_gradient: None,
         }
     }
 }
@@ -81,11 +105,7 @@ impl Layer for DenseLayer {
     /// # Arguments
     /// * `input` - (shape (i, 1))
     /// * `output_gradient` - (shape (j, 1))
-    fn propagate_backward(
-        &mut self,
-        output_gradient: &Array2<f64>,
-        learning_rate: f64,
-    ) -> Array2<f64> {
+    fn propagate_backward(&mut self, output_gradient: &Array2<f64>) -> Array2<f64> {
         // Unwrap the input without cloning
         let input = self
             .input
@@ -98,11 +118,33 @@ impl Layer for DenseLayer {
         // Compute input gradients
         let input_gradient = self.weights.t().dot(output_gradient);
 
-        // Update bias and weights with scaling and addition
-        self.bias.scaled_add(-learning_rate, output_gradient);
-        self.weights.scaled_add(-learning_rate, &weights_gradient);
+        self.weights_gradient = Some(weights_gradient);
+        self.biases_gradient = Some(output_gradient.clone());
 
         input_gradient
+    }
+}
+
+impl Trainable for DenseLayer {
+    fn get_parameters(&self) -> Vec<Array2<f64>> {
+        vec![self.weights.clone(), self.bias.clone()]
+    }
+
+    fn get_parameters_mut(&mut self) -> Vec<&mut Array2<f64>> {
+        vec![&mut self.weights, &mut self.bias]
+    }
+
+    fn get_gradients(&self) -> Vec<Array2<f64>> {
+        vec![
+            self.weights_gradient
+                .as_ref()
+                .expect("Illegal access to unset weights gradient")
+                .clone(),
+            self.biases_gradient
+                .as_ref()
+                .expect("Illegal access to unset biases gradient")
+                .clone(),
+        ]
     }
 }
 
@@ -132,10 +174,11 @@ impl Layer for ActivationLayer {
     /// return the input gradient with respect to the activation layer output gradient
     /// because the activation layer doesn't have trainable parameters, we don't care about the
     /// learning_rate.
-    fn propagate_backward(&mut self, output_gradient: &Array2<f64>, _: f64) -> Array2<f64> {
+    fn propagate_backward(&mut self, output_gradient: &Array2<f64>) -> Array2<f64> {
         let input = self
             .input
             .as_ref()
+            // TODO return appropirate error
             .unwrap_or_else(|| panic!("access to a unset input inside backproapgation"));
         output_gradient * self.activation.apply_derivative(input)
     }

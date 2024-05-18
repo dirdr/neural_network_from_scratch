@@ -22,10 +22,7 @@ pub enum NeuralNetworkError {
 }
 
 impl NeuralNetworkBuilder {
-    /// Create a new `NeuralNetworkBuilder` with the following default values :
-    /// * `learning_rate`: 0.1
-    /// * `epochs`: 0.1
-    /// * `gradient_descent_strategy`: MiniBatch
+    /// Create a new `NeuralNetworkBuilder`
     pub fn new() -> NeuralNetworkBuilder {
         Self { layers: vec![] }
     }
@@ -39,6 +36,9 @@ impl NeuralNetworkBuilder {
         self
     }
 
+    /// Build the neural network
+    /// A NeuralNetworkError is returned if the network is wrongly defined
+    /// see `NeuralNetworkError` for informations of what can fail.
     pub fn build(
         self,
         optimizer: impl Optimizer + 'static,
@@ -131,7 +131,7 @@ impl NeuralNetwork {
                 // Back propagation (weight and bias update)
                 for layer in layers.iter().rev() {
                     let mut layer = layer.lock().unwrap();
-                    grad = layer.propagate_backward(&grad, learning_rate);
+                    grad = layer.propagate_backward(&grad);
                 }
             });
 

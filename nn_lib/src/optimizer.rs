@@ -1,6 +1,8 @@
+use crate::layer::Trainable;
+
 pub trait Optimizer {
     fn get_learning_rate(&self) -> f64;
-    fn step(&mut self) -> f64;
+    fn step(&mut self, layer: &mut dyn Trainable);
 }
 
 pub struct GradientDescent {
@@ -18,7 +20,13 @@ impl Optimizer for GradientDescent {
         self.learning_rate
     }
 
-    fn step(&mut self) -> f64 {
-        todo!()
+    fn step(&mut self, layer: &mut dyn Trainable) {
+        let gradients = layer.get_gradients();
+
+        let mut parameters = layer.get_parameters_mut();
+
+        for (param, grad) in parameters.iter_mut().zip(gradients.iter()) {
+            param.scaled_add(-self.learning_rate, grad);
+        }
     }
 }
