@@ -1,16 +1,12 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{cost::CostFunction, layer::Layer};
+use crate::{cost::CostFunction, layer::Layer, optimizer::Optimizer};
 use log::info;
 use ndarray::{par_azip, Array2, Array3};
 use thiserror::Error;
 
 pub struct NeuralNetworkBuilder {
     layers: Vec<Arc<Mutex<dyn Layer>>>,
-    learning_rate: f64,
-    epochs: usize,
-    gradient_descent_strategy: GradientDescentStrategy,
-    cost_function: CostFunction,
 }
 
 #[derive(Error, Debug)]
@@ -31,50 +27,29 @@ impl NeuralNetworkBuilder {
     /// * `epochs`: 0.1
     /// * `gradient_descent_strategy`: MiniBatch
     pub fn new() -> NeuralNetworkBuilder {
-        Self {
-            layers: vec![],
-            learning_rate: 0.1,
-            epochs: 1000,
-            gradient_descent_strategy: GradientDescentStrategy::MiniBatch,
-            cost_function: CostFunction::CrossEntropy,
-        }
+        Self { layers: vec![] }
     }
 }
 
 impl NeuralNetworkBuilder {
     /// Add a layer to the sequential neural network
     /// in a sequential neural network, layers are added left to right (input -> hidden -> output)
-    pub fn push_layer(mut self, layer: impl Layer + 'static) -> NeuralNetworkBuilder {
+    pub fn push(mut self, layer: impl Layer + 'static) -> NeuralNetworkBuilder {
         self.layers.push(Arc::new(Mutex::new(layer)));
         self
     }
 
-    pub fn with_learning_rate(mut self, learning_rate: f64) -> NeuralNetworkBuilder {
-        self.learning_rate = learning_rate;
-        self
-    }
-
-    pub fn with_epochs(mut self, epochs: usize) -> Self {
-        self.epochs = epochs;
-        self
-    }
-
-    pub fn gradient_descent_strategy(mut self, gds: GradientDescentStrategy) -> Self {
-        self.gradient_descent_strategy = gds;
-        self
-    }
-
-    pub fn with_cost_function(mut self, cost_function: CostFunction) -> Self {
-        self.cost_function = cost_function;
-        self
-    }
-
-    pub fn build(self) -> Result<NeuralNetwork, NeuralNetworkError> {
+    pub fn build(
+        self,
+        optimizer: impl Optimizer + 'static,
+        cost_function: CostFunction,
+    ) -> Result<NeuralNetwork, NeuralNetworkError> {
+        // TODO check if the cost function and last layer match
+        // TODO check of the network dimension are ok
         Ok(NeuralNetwork {
             layers: self.layers,
-            epochs: self.epochs,
-            learning_rate: self.learning_rate,
-            cost_function: self.cost_function,
+            cost_function,
+            optimizer: Box::new(optimizer),
         })
     }
 }
@@ -83,16 +58,6 @@ impl Default for NeuralNetworkBuilder {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Enumeration of Gradient Descent Strategy
-/// `Batch` use the whole dataset to make a gradient descent step
-/// `MiniBatch` use randomly shuffled subset of the original input
-/// `Stochastic` use a random data point of the original set
-pub enum GradientDescentStrategy {
-    Batch,
-    MiniBatch,
-    Stochastic,
 }
 
 /// a trainable `NeuralNetwork`
@@ -109,9 +74,8 @@ pub enum GradientDescentStrategy {
 /// * `learning_rate` - gradient descent learning rate
 pub struct NeuralNetwork {
     layers: Vec<Arc<Mutex<dyn Layer>>>,
-    epochs: usize,
-    learning_rate: f64,
     cost_function: CostFunction,
+    optimizer: Box<dyn Optimizer>,
 }
 
 impl NeuralNetwork {
@@ -133,12 +97,10 @@ impl NeuralNetwork {
     /// * `x_train` - an Array3 (shape (num_train_samples, i, n)) of training images
     /// * `y_train` - an Array3 (shape (num_label_samples, j, 1)) of training label labels are
     /// one-hot encoded.
-    pub fn train_par(&mut self, x_train: Array3<f64>, y_train: Array3<f64>) {
+    pub fn train_par(&mut self, x_train: Array3<f64>, y_train: Array3<f64>, epochs: usize) {
         let layers = self.layers.clone();
-        let learning_rate = self.learning_rate;
         let cost_function = self.cost_function;
-        let epochs = self.epochs;
-
+        let learning_rate = self.optimizer.get_learning_rate();
         for e in 0..epochs {
             let error = Arc::new(Mutex::new(0.0));
 

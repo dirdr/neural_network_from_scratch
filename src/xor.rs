@@ -8,35 +8,36 @@ use nn_lib::{
     initialization::InitializerType,
     layer::{ActivationLayer, DenseLayer},
     neural_network::{NeuralNetwork, NeuralNetworkBuilder},
+    optimizer::GradientDescent,
 };
 
 pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
     Ok(NeuralNetworkBuilder::new()
-        .push_layer(DenseLayer::new(2, 16, InitializerType::GlorotUniform))
-        .push_layer(ActivationLayer::from(Activation::ReLU))
-        .push_layer(DenseLayer::new(16, 1, InitializerType::GlorotUniform))
-        // cost function BSE assume sigmoid so don't include it after the output layer
-        .push_layer(ActivationLayer::from(Activation::Sigmoid))
-        .with_cost_function(CostFunction::Mse)
-        .with_learning_rate(0.1)
-        .with_epochs(1000)
-        .build()?)
+        .push(DenseLayer::new(2, 16, InitializerType::GlorotUniform))
+        .push(ActivationLayer::from(Activation::ReLU))
+        .push(DenseLayer::new(16, 1, InitializerType::GlorotUniform))
+        .push(ActivationLayer::from(Activation::Sigmoid))
+        .build(GradientDescent::new(0.1), CostFunction::BinaryCrossEntropy))
+}
+
+fn get_training_data() -> (Array3<f64>, Array3<f64>) {
+    let x_flat = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+    let y_flat = vec![0.0, 1.0, 1.0, 0.0];
+    (
+        Array3::from_shape_vec((4, 2, 1), x_flat.clone())?,
+        Array3::from_shape_vec((4, 1, 1), y_flat)?,
+    )
 }
 
 pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
-    let x_flat = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
-    let x = Array3::from_shape_vec((4, 2, 1), x_flat.clone())?;
-    let y_flat = vec![0.0, 1.0, 1.0, 0.0];
-    let y = Array3::from_shape_vec((4, 1, 1), y_flat)?;
-    neural_network.train_par(x.clone(), y);
-    // test the neural network with exemples:
+    let (x, y) = get_training_data();
+    neural_network.train_par(x.clone(), y, 1000);
+
     let predictions = x
         .outer_iter()
         .map(|e| neural_network.predict(e.to_owned()))
         .collect::<Vec<Array2<f64>>>();
 
-    debug!("x input {:?}", x);
-    // a vérifier que c'est bon cette histoire
     for (i, chunk) in x_flat.chunks_exact(2).enumerate() {
         let x1 = chunk[0];
         let x2 = chunk[1];
