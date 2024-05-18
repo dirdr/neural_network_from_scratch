@@ -5,6 +5,7 @@ pub trait Optimizer {
     fn step(&mut self, layer: &mut dyn Trainable);
 }
 
+#[derive(Clone)]
 pub struct GradientDescent {
     learning_rate: f64,
 }

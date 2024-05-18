@@ -49,7 +49,7 @@ impl NeuralNetworkBuilder {
         Ok(NeuralNetwork {
             layers: self.layers,
             cost_function,
-            optimizer: Box::new(optimizer),
+            optimizer: Arc::new(Mutex::new(optimizer)),
         })
     }
 }
@@ -75,7 +75,7 @@ impl Default for NeuralNetworkBuilder {
 pub struct NeuralNetwork {
     layers: Vec<Arc<Mutex<dyn Layer>>>,
     cost_function: CostFunction,
-    optimizer: Box<dyn Optimizer>,
+    optimizer: Arc<Mutex<dyn Optimizer>>,
 }
 
 impl NeuralNetwork {
@@ -100,7 +100,6 @@ impl NeuralNetwork {
     pub fn train_par(&mut self, x_train: Array3<f64>, y_train: Array3<f64>, epochs: usize) {
         let layers = self.layers.clone();
         let cost_function = self.cost_function;
-        let learning_rate = self.optimizer.get_learning_rate();
         for e in 0..epochs {
             let error = Arc::new(Mutex::new(0.0));
 
@@ -128,7 +127,8 @@ impl NeuralNetwork {
                 // First cost function gradient
                 let mut grad = cost_function.cost_output_gradient(&output, &y);
 
-                // Back propagation (weight and bias update)
+                // Back propagation
+                // TODO ajouter le step de l'optimizer
                 for layer in layers.iter().rev() {
                     let mut layer = layer.lock().unwrap();
                     grad = layer.propagate_backward(&grad);

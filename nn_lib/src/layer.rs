@@ -9,19 +9,6 @@ enum LayerError {
     IllegalInputAccess,
 }
 
-/// Hold the needed data to the back propagation algorithm
-/// `input_gradient` is the gradient of the cost function with respect to the input of the layer
-/// `trainable_parameters` is the layer parameters, fe: weights and biases for `DenseLayer`
-/// `trainable_parameters_gradient` are the gradient with repsect to the trainable parameters with
-/// a 1:1 match (paramsgrad[i] = grad(params[i]))
-/// Note that the params and gradient params are Option as some layer don't have any trainable
-/// parameters, e.g: `ActivationLayer`
-struct BackpropagationResiduals {
-    input_gradient: Array2<f64>,
-    trainable_parameters: Option<Array2<f64>>,
-    trainable_parameters_gradient: Option<Array2<f64>>,
-}
-
 /// The `Layer` trait need to be implemented by any nn layer
 ///
 // In this library, we use a 'Layer-activation decoupling' paradigm, where we separate the 'Dense'
@@ -55,6 +42,13 @@ pub trait Layer: Send + Sync {
     ) -> Array2<f64>;
 }
 
+// TODO comment and explain the use of this
+pub trait Trainable {
+    fn get_parameters(&self) -> Vec<Array2<f64>>;
+    fn get_parameters_mut(&mut self) -> Vec<&mut Array2<f64>>;
+    fn get_gradients(&self) -> Vec<Array2<f64>>;
+}
+
 /// `Dense` Layer (ie: Fully connected layer)
 /// weights matrices follow the conversion output first
 /// weights_ji connect output node y_j to input node x_i
@@ -70,12 +64,6 @@ pub struct DenseLayer {
     // store those for optimizer access (from the trait Trainable)
     weights_gradient: Option<Array2<f64>>,
     biases_gradient: Option<Array2<f64>>,
-}
-
-pub trait Trainable {
-    fn get_parameters(&self) -> Vec<Array2<f64>>;
-    fn get_parameters_mut(&mut self) -> Vec<&mut Array2<f64>>;
-    fn get_gradients(&self) -> Vec<Array2<f64>>;
 }
 
 impl DenseLayer {
