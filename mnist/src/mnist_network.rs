@@ -10,11 +10,6 @@ use nn_lib::{
 
 use crate::load_dataset;
 
-enum NetworkType {
-    Convolutional,
-    Mlp,
-}
-
 pub fn build_network() -> anyhow::Result<()> {
     let data_set = load_dataset()?;
 
