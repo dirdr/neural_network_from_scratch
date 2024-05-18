@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use ndarray::Array2;
 use thiserror::Error;
 
@@ -40,6 +42,10 @@ pub trait Layer: Send + Sync {
         // TODO peut être modifier ca avec les réseaux convo on est pas sur que la dimension des
         // paramètres entraibles sont les mêmes
     ) -> Array2<f64>;
+
+    fn as_any(&self) -> &dyn Any;
+
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 // TODO comment and explain the use of this
@@ -111,6 +117,14 @@ impl Layer for DenseLayer {
 
         input_gradient
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 impl Trainable for DenseLayer {
@@ -169,5 +183,13 @@ impl Layer for ActivationLayer {
             // TODO return appropirate error
             .unwrap_or_else(|| panic!("access to a unset input inside backproapgation"));
         output_gradient * self.activation.apply_derivative(input)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

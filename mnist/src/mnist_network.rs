@@ -3,7 +3,7 @@ use nn_lib::{
     activation::Activation,
     cost::CostFunction,
     initialization::InitializerType,
-    layer::{self, DenseLayer},
+    layer::{ActivationLayer, DenseLayer},
     neural_network::NeuralNetworkBuilder,
     optimizer::GradientDescent,
 };
@@ -15,7 +15,7 @@ pub fn build_network() -> anyhow::Result<()> {
 
     let network = NeuralNetworkBuilder::new()
         .push(DenseLayer::new(28 * 28, 256, InitializerType::He))
-        .push(layer::ActivationLayer::from(Activation::ReLU))
+        .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(256, 10, InitializerType::He))
         .build(GradientDescent::new(0.1), CostFunction::CrossEntropy);
 

@@ -1,6 +1,10 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{cost::CostFunction, layer::Layer, optimizer::Optimizer};
+use crate::{
+    cost::CostFunction,
+    layer::{Layer, Trainable},
+    optimizer::{self, Optimizer},
+};
 use log::info;
 use ndarray::{par_azip, Array2, Array3};
 use thiserror::Error;
@@ -99,6 +103,7 @@ impl NeuralNetwork {
     /// one-hot encoded.
     pub fn train_par(&mut self, x_train: Array3<f64>, y_train: Array3<f64>, epochs: usize) {
         let layers = self.layers.clone();
+        let optimizer = Arc::clone(&self.optimizer);
         let cost_function = self.cost_function;
         for e in 0..epochs {
             let error = Arc::new(Mutex::new(0.0));
@@ -130,9 +135,15 @@ impl NeuralNetwork {
                 // Back propagation
                 // TODO ajouter le step de l'optimizer
                 for layer in layers.iter().rev() {
-                    let mut layer = layer.lock().unwrap();
-                    grad = layer.propagate_backward(&grad);
+                let mut layer = layer.lock().unwrap();
+                grad = layer.propagate_backward(&grad);
+
+                // Downcast to Trainable and call optimizer's step method if possible
+                if let Some(trainable_layer) = layer.as_any_mut().downcast_mut::<dyn Trainable>() {
+                    let mut optimizer = optimizer.lock().unwrap();
+                    optimizer.step(trainable_layer);
                 }
+            }
             });
 
             let error =
