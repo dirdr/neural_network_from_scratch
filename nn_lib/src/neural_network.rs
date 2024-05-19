@@ -2,8 +2,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
     cost::CostFunction,
-    layer::{Layer, Trainable},
-    optimizer::{self, Optimizer},
+    layer::{DenseLayer, Layer, Trainable},
+    optimizer::Optimizer,
 };
 use log::info;
 use ndarray::{par_azip, Array2, Array3};
@@ -139,7 +139,9 @@ impl NeuralNetwork {
                 grad = layer.propagate_backward(&grad);
 
                 // Downcast to Trainable and call optimizer's step method if possible
-                if let Some(trainable_layer) = layer.as_any_mut().downcast_mut::<dyn Trainable>() {
+                // if other layers (like convolutional implement trainable, need to downcast
+                // explicitely)
+                if let Some(trainable_layer) = layer.as_any_mut().downcast_mut::<DenseLayer>() {
                     let mut optimizer = optimizer.lock().unwrap();
                     optimizer.step(trainable_layer);
                 }

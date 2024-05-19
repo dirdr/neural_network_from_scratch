@@ -1,6 +1,6 @@
 use crate::layer::Trainable;
 
-pub trait Optimizer {
+pub trait Optimizer: Sync + Send {
     fn get_learning_rate(&self) -> f64;
     fn step(&mut self, layer: &mut dyn Trainable);
 }

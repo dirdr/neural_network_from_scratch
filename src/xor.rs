@@ -17,7 +17,7 @@ pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
         // TODO gérer pour les fonctions de couts "output Dependant" ne pas prendre en compte la
         // dernière activation
         .push(ActivationLayer::from(Activation::Sigmoid))
-        .build(GradientDescent::new(0.1), CostFunction::BinaryCrossEntropy)?)
+        .build(GradientDescent::new(0.1), CostFunction::Mse)?)
 }
 
 fn get_training_data() -> (Array3<f64>, Array3<f64>) {
