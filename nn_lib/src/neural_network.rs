@@ -135,12 +135,7 @@ impl NeuralNetwork {
     }
 
     pub fn process_batch(&mut self, batched_x: Vec<Array2<f64>>, batched_y: Vec<Array2<f64>>) {
-        let layers = self.layers.clone();
-        let optimizer = Arc::clone(&self.optimizer);
-        let cost_function = self.cost_function;
-
         let error = Arc::new(Mutex::new(0.0));
-
         batched_x
             .par_iter()
             .zip(batched_y.par_iter())
@@ -150,39 +145,43 @@ impl NeuralNetwork {
                 let output = self.predict(&x);
 
                 // Cost evaluation
-                let cost = cost_function.cost(&output, &y);
+                let cost = self.cost_function.cost(&output, &y);
 
+                // Update error
                 {
                     let mut error_guard = error.lock().unwrap();
                     *error_guard += cost;
                 }
 
-                // First cost function gradient
-                let mut grad = cost_function.cost_output_gradient(&output, &y);
-
-                // if the cost function is dependant of the last layer, the gradient calculation
-                // have been done with respect to the net logits directly, thus skip the last layer
-                // in the gradients backpropagation
-                let skip_layer = if cost_function.output_dependant() {
-                    1
-                } else {
-                    0
-                };
-
-                // Back propagation
-                for layer in layers.iter().rev().skip(skip_layer) {
-                    let mut layer = layer.lock().unwrap();
-                    grad = layer.propagate_backward(&grad);
-
-                    // Downcast to Trainable and call optimizer's step method if possible
-                    // if other layers (like convolutional implement trainable, need to downcast
-                    // explicitely)
-                    if let Some(trainable_layer) = layer.as_any_mut().downcast_mut::<DenseLayer>() {
-                        let mut optimizer = optimizer.lock().unwrap();
-                        optimizer.step(trainable_layer);
-                    }
-                }
+                self.backpropagation(output, y);
             });
         //let error = Arc::try_unwrap(error).unwrap().into_inner().unwrap() / batched_x.len() as f64;
+    }
+
+    fn backpropagation(&self, net_output: Array2<f64>, observed: Array2<f64>) {
+        let mut grad = self
+            .cost_function
+            .cost_output_gradient(&net_output, &observed);
+        // if the cost function is dependant of the last layer, the gradient calculation
+        // have been done with respect to the net logits directly, thus skip the last layer
+        // in the gradients backpropagation
+        let skip_layer = if self.cost_function.output_dependant() {
+            1
+        } else {
+            0
+        };
+
+        for layer in self.layers.iter().rev().skip(skip_layer) {
+            let mut layer = layer.lock().unwrap();
+            grad = layer.propagate_backward(&grad);
+
+            // Downcast to Trainable and call optimizer's step method if possible
+            // if other layers (like convolutional implement trainable, need to downcast
+            // explicitely)
+            if let Some(trainable_layer) = layer.as_any_mut().downcast_mut::<DenseLayer>() {
+                let mut optimizer = self.optimizer.lock().unwrap();
+                optimizer.step(trainable_layer);
+            }
+        }
     }
 }

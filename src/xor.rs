@@ -15,7 +15,7 @@ pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(8, 1, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::Sigmoid))
-        .build(GradientDescent::new(0.08), CostFunction::BinaryCrossEntropy)?)
+        .build(GradientDescent::new(0.05), CostFunction::BinaryCrossEntropy)?)
 }
 
 fn get_training_data() -> (Vec<Array2<f64>>, Vec<Array2<f64>>) {
