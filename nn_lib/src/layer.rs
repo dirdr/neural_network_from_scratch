@@ -193,3 +193,10 @@ impl Layer for ActivationLayer {
         self
     }
 }
+
+pub struct ConvolutionalLayer {
+    
+}
+
+impl Layer for ConvolutionalLayer {
+}
