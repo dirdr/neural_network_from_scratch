@@ -1,4 +1,7 @@
-use std::any::Any;
+use std::{
+    any::Any,
+    fmt::{Display, Write},
+};
 
 use ndarray::Array2;
 use thiserror::Error;
@@ -36,12 +39,7 @@ pub trait Layer: Send + Sync {
     /// Return the gradient of the cost function with respecct to the layer input values
     /// # Arguments
     /// * `output_gradient` - Output gradient vector shape (j, 1))
-    fn propagate_backward(
-        &mut self,
-        output_gradient: &Array2<f64>,
-        // TODO peut être modifier ca avec les réseaux convo on est pas sur que la dimension des
-        // paramètres entraibles sont les mêmes
-    ) -> Array2<f64>;
+    fn propagate_backward(&mut self, output_gradient: &Array2<f64>) -> Array2<f64>;
 
     fn as_any(&self) -> &dyn Any;
 
@@ -51,7 +49,9 @@ pub trait Layer: Send + Sync {
 // TODO comment and explain the use of this
 pub trait Trainable {
     fn get_parameters(&self) -> Vec<Array2<f64>>;
+
     fn get_parameters_mut(&mut self) -> Vec<&mut Array2<f64>>;
+
     fn get_gradients(&self) -> Vec<Array2<f64>>;
 }
 
@@ -94,8 +94,7 @@ impl Layer for DenseLayer {
         self.weights.dot(input) + &self.bias
     }
 
-    /// Update trainable parameters (weights and bias)
-    /// and return the input gradient vector (shape (i, 1)).
+    /// Return the input gradient vector (shape (i, 1)) by processing the output gradient vector
     /// # Arguments
     /// * `input` - (shape (i, 1))
     /// * `output_gradient` - (shape (j, 1))
@@ -162,6 +161,12 @@ impl ActivationLayer {
             activation,
             input: None,
         }
+    }
+}
+
+impl Display for ActivationLayer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("Activationlayer : {}\n", self.activation))
     }
 }
 

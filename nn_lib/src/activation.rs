@@ -1,3 +1,5 @@
+use std::fmt::{Display, Write};
+
 use ndarray::Array2;
 
 pub enum Activation {
@@ -5,6 +7,17 @@ pub enum Activation {
     Tanh,
     Sigmoid,
     Softmax,
+}
+
+impl Display for Activation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Activation::ReLU => f.write_str("ReLu"),
+            Activation::Tanh => f.write_str("Tanh"),
+            Activation::Sigmoid => f.write_str("Sigmoid"),
+            Activation::Softmax => f.write_str("Softmax"),
+        }
+    }
 }
 
 impl Activation {

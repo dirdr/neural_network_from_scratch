@@ -1,3 +1,5 @@
+use log::debug;
+
 use crate::layer::Trainable;
 
 pub trait Optimizer: Sync + Send {
