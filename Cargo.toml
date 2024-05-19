@@ -13,3 +13,6 @@ nn_lib = {path = "./nn_lib/"}
 mnist = {path = "./mnist/"}
 anyhow = "1.0.83"
 log = "0.4.21"
+egui = "0.27.2"
+eframe = "0.27.2"
+image = "0.25.1"
