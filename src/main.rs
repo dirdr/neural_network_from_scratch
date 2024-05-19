@@ -1,3 +1,4 @@
+mod xor;
 mod app;
 
 use eframe::NativeOptions;
@@ -62,6 +63,8 @@ fn main() -> anyhow::Result<()> {
             });
         }),
     );
+    // let net = xor::build_neural_net()?;
+    // xor::start(net)?;
     Ok(())
 }
 

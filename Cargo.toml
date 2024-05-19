@@ -4,7 +4,7 @@ workspace = { members = [ "mnist", "nn_lib"] }
 name = "nn_from_scratch"
 version = "0.1.0"
 edition = "2021"
-author = ["Adrien Pelfresne", "Alexis Vapaille"]
+authors = ["Adrien Pelfresne", "Alexis Vapaille"]
 
 [dependencies]
 clap = "4.5.4"
@@ -16,3 +16,5 @@ log = "0.4.21"
 egui = "0.27.2"
 eframe = "0.27.2"
 image = "0.25.1"
+=======
+ndarray = {version = "0.15.6", features = ["matrixmultiply-threading", "rayon"]}
