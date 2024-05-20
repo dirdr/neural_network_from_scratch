@@ -27,11 +27,9 @@ fn main() -> anyhow::Result<()> {
                     if let Some(pos) = response.interact_pointer_pos() {
                         current_path.push(pos - rect.min.to_vec2());
                     }
-                } else if response.drag_stopped() {
-                    if !current_path.is_empty() {
-                        paths.push(current_path.clone());
-                        current_path.clear();
-                    }
+                } else if response.drag_stopped() && !current_path.is_empty() {
+                    paths.push(current_path.clone());
+                    current_path.clear();
                 }
 
                 for path in &paths {
