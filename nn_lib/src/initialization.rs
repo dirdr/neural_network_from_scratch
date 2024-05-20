@@ -1,4 +1,4 @@
-use ndarray::Array2;
+use ndarray::{Array2, Array4};
 use ndarray_rand::{
     rand_distr::{Normal, Uniform},
     RandomExt,
@@ -15,28 +15,40 @@ impl InitializerType {
     /// # Arguments
     /// * `input_size` - The number of input for the initialized layer
     /// * `shape` - output matrices shape
-    pub fn initialize(
-        &self,
-        input_size: usize,
-        output_size: usize,
-        shape: (usize, usize),
-    ) -> Array2<f64> {
+    pub fn initialize(&self, input_size: usize, output_size: usize, shape: (usize, usize)) -> Array2<f64> {
         match self {
             InitializerType::He => {
-                let std_dev = (2.0 / input_size as f32).sqrt();
-                let normal =
-                    Normal::new(0.0, std_dev as f64).expect("can't create normal distribution");
+                let std_dev = (2.0 / input_size as f64).sqrt();
+                let normal = Normal::new(0.0, std_dev).expect("Can't create normal distribution");
                 Array2::random(shape, normal)
             }
             InitializerType::RandomNormal(mean, std_dev) => {
-                let normal =
-                    Normal::new(*mean, *std_dev).expect("can't create normal distribution");
+                let normal = Normal::new(*mean, *std_dev).expect("Can't create normal distribution");
                 Array2::random(shape, normal)
             }
             InitializerType::GlorotUniform => {
                 let limit = (6.0 / (input_size + output_size) as f64).sqrt();
                 let uniform = Uniform::new(-limit, limit);
                 Array2::random(shape, uniform)
+            }
+        }
+    }
+
+    pub fn initialize_4d(&self, input_size: usize, output_size: usize, shape: (usize, usize, usize, usize)) -> Array4<f64> {
+        match self {
+            InitializerType::He => {
+                let std_dev = (2.0 / input_size as f64).sqrt();
+                let normal = Normal::new(0.0, std_dev).expect("Can't create normal distribution");
+                Array4::random(shape, normal)
+            }
+            InitializerType::RandomNormal(mean, std_dev) => {
+                let normal = Normal::new(*mean, *std_dev).expect("Can't create normal distribution");
+                Array4::random(shape, normal)
+            }
+            InitializerType::GlorotUniform => {
+                let limit = (6.0 / (input_size + output_size) as f64).sqrt();
+                let uniform = Uniform::new(-limit, limit);
+                Array4::random(shape, uniform)
             }
         }
     }

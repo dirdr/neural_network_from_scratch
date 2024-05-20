@@ -1,12 +1,20 @@
-use std::sync::{Arc, Mutex};
-
 use crate::{
     cost::CostFunction,
-    layer::{DenseLayer, Layer, Trainable},
+    layer::{DenseLayer, Layer},
     optimizer::Optimizer,
 };
-use log::info;
+use log::{debug, info};
 use ndarray::{par_azip, Array2, Array3};
+use ndarray_rand::rand::seq::SliceRandom;
+use ndarray_rand::rand::thread_rng;
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator,
+    IntoParallelRefMutIterator, ParallelIterator,
+};
+use std::{
+    os::unix::thread,
+    sync::{Arc, Mutex},
+};
 use thiserror::Error;
 
 pub struct NeuralNetworkBuilder {
@@ -87,7 +95,7 @@ impl NeuralNetwork {
     /// the shape of the prediction is defined by the neural net's last layer shape.
     /// # Arguments
     /// * `input` : the input of the neural network.
-    pub fn predict(&self, input: Array2<f64>) -> Array2<f64> {
+    pub fn predict(&self, input: &Array2<f64>) -> Array2<f64> {
         let mut output = input.clone();
         for layer in &self.layers {
             let mut layer = layer.lock().unwrap();
@@ -96,61 +104,84 @@ impl NeuralNetwork {
         output
     }
 
-    /// Train the neural network with Gradient descent algorithm
+    /// Train the neural network with Gradient descent Algorithm
     /// # Arguments
-    /// * `x_train` - an Array3 (shape (num_train_samples, i, n)) of training images
-    /// * `y_train` - an Array3 (shape (num_label_samples, j, 1)) of training label labels are
+    /// * `x_train` - a vec of Array2 (shape (i, n)) of training images
+    /// * `y_train` - a vec of Array2 (shape (j, 1)) of training label labels are
     /// one-hot encoded.
-    pub fn train_par(&mut self, x_train: Array3<f64>, y_train: Array3<f64>, epochs: usize) {
-        let layers = self.layers.clone();
-        let optimizer = Arc::clone(&self.optimizer);
-        let cost_function = self.cost_function;
-        for e in 0..epochs {
-            let error = Arc::new(Mutex::new(0.0));
+    pub fn train_par(
+        &mut self,
+        x_train: Vec<Array2<f64>>,
+        y_train: Vec<Array2<f64>>,
+        epochs: usize,
+        batch_size: usize,
+    ) {
+        for _ in 0..epochs {
+            assert!(x_train.len() == y_train.len());
 
-            par_azip!((x in x_train.outer_iter(), y in y_train.outer_iter()) {
+            let mut indices = (0..x_train.len()).collect::<Vec<_>>();
+            let mut rng = thread_rng();
+            indices.shuffle(&mut rng);
+
+            indices.chunks(batch_size).for_each(|batch_i| {
+                //debug!("indices batches {:?} for epochs {}", batch_i, e);
+                let batched_x: Vec<Array2<f64>> =
+                    batch_i.iter().map(|&i| x_train[i].clone()).collect();
+                let batched_y: Vec<Array2<f64>> =
+                    batch_i.iter().map(|&i| y_train[i].clone()).collect();
+                self.process_batch(batched_x, batched_y);
+            });
+        }
+    }
+
+    pub fn process_batch(&mut self, batched_x: Vec<Array2<f64>>, batched_y: Vec<Array2<f64>>) {
+        let error = Arc::new(Mutex::new(0.0));
+        batched_x
+            .par_iter()
+            .zip(batched_y.par_iter())
+            .for_each(|(x, y)| {
                 let (x, y) = (x.to_owned(), y.to_owned());
 
-
-                // Feed forward
-                let output = {
-                    let mut output = x.clone();
-                    for layer in &layers {
-                        let mut layer = layer.lock().unwrap();
-                        output = layer.feed_forward(&output);
-                    }
-                    output
-                };
+                let output = self.predict(&x);
 
                 // Cost evaluation
-                let cost = cost_function.cost(&output, &y);
+                let cost = self.cost_function.cost(&output, &y);
+
+                // Update error
                 {
                     let mut error_guard = error.lock().unwrap();
                     *error_guard += cost;
                 }
 
-                // First cost function gradient
-                let mut grad = cost_function.cost_output_gradient(&output, &y);
-
-                // Back propagation
-                // TODO ajouter le step de l'optimizer
-                for layer in layers.iter().rev() {
-                let mut layer = layer.lock().unwrap();
-                grad = layer.propagate_backward(&grad);
-
-                // Downcast to Trainable and call optimizer's step method if possible
-                // if other layers (like convolutional implement trainable, need to downcast
-                // explicitely)
-                if let Some(trainable_layer) = layer.as_any_mut().downcast_mut::<DenseLayer>() {
-                    let mut optimizer = optimizer.lock().unwrap();
-                    optimizer.step(trainable_layer);
-                }
-            }
+                self.backpropagation(output, y);
             });
+        //let error = Arc::try_unwrap(error).unwrap().into_inner().unwrap() / batched_x.len() as f64;
+    }
 
-            let error =
-                Arc::try_unwrap(error).unwrap().into_inner().unwrap() / x_train.len() as f64;
-            info!("Epoch {}: training error = {}", e, error);
+    fn backpropagation(&self, net_output: Array2<f64>, observed: Array2<f64>) {
+        let mut grad = self
+            .cost_function
+            .cost_output_gradient(&net_output, &observed);
+        // if the cost function is dependant of the last layer, the gradient calculation
+        // have been done with respect to the net logits directly, thus skip the last layer
+        // in the gradients backpropagation
+        let skip_layer = if self.cost_function.output_dependant() {
+            1
+        } else {
+            0
+        };
+
+        for layer in self.layers.iter().rev().skip(skip_layer) {
+            let mut layer = layer.lock().unwrap();
+            grad = layer.propagate_backward(&grad);
+
+            // Downcast to Trainable and call optimizer's step method if possible
+            // if other layers (like convolutional implement trainable, need to downcast
+            // explicitely)
+            if let Some(trainable_layer) = layer.as_any_mut().downcast_mut::<DenseLayer>() {
+                let mut optimizer = self.optimizer.lock().unwrap();
+                optimizer.step(trainable_layer);
+            }
         }
     }
 }

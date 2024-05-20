@@ -1,6 +1,6 @@
+use std::fmt::Display;
 use std::any::Any;
-
-use ndarray::Array2;
+use ndarray::{Array2, Array3, Array4, s, Zip};
 use thiserror::Error;
 
 use crate::{activation::Activation, initialization::InitializerType};
@@ -36,12 +36,7 @@ pub trait Layer: Send + Sync {
     /// Return the gradient of the cost function with respecct to the layer input values
     /// # Arguments
     /// * `output_gradient` - Output gradient vector shape (j, 1))
-    fn propagate_backward(
-        &mut self,
-        output_gradient: &Array2<f64>,
-        // TODO peut être modifier ca avec les réseaux convo on est pas sur que la dimension des
-        // paramètres entraibles sont les mêmes
-    ) -> Array2<f64>;
+    fn propagate_backward(&mut self, output_gradient: &Array2<f64>) -> Array2<f64>;
 
     fn as_any(&self) -> &dyn Any;
 
@@ -51,7 +46,9 @@ pub trait Layer: Send + Sync {
 // TODO comment and explain the use of this
 pub trait Trainable {
     fn get_parameters(&self) -> Vec<Array2<f64>>;
+
     fn get_parameters_mut(&mut self) -> Vec<&mut Array2<f64>>;
+
     fn get_gradients(&self) -> Vec<Array2<f64>>;
 }
 
@@ -94,8 +91,7 @@ impl Layer for DenseLayer {
         self.weights.dot(input) + &self.bias
     }
 
-    /// Update trainable parameters (weights and bias)
-    /// and return the input gradient vector (shape (i, 1)).
+    /// Return the input gradient vector (shape (i, 1)) by processing the output gradient vector
     /// # Arguments
     /// * `input` - (shape (i, 1))
     /// * `output_gradient` - (shape (j, 1))
@@ -165,6 +161,12 @@ impl ActivationLayer {
     }
 }
 
+impl Display for ActivationLayer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("Activationlayer : {}\n", self.activation))
+    }
+}
+
 impl Layer for ActivationLayer {
     /// apply the activation function to each input (shape (i * 1))
     /// return an output vector of shape (i * 1).
@@ -195,8 +197,111 @@ impl Layer for ActivationLayer {
 }
 
 pub struct ConvolutionalLayer {
-    
+    kernels: Array4<f64>,
+    bias: Array2<f64>,
+    input: Option<Array3<f64>>,
+    kernel_gradient: Option<Array4<f64>>,
+    bias_gradient: Option<Array2<f64>>,
 }
 
-impl Layer for ConvolutionalLayer {
+impl ConvolutionalLayer {
+    pub fn new(
+        input_size: (usize, usize, usize),
+        kernel_size: (usize, usize),
+        number_of_kernel: usize,
+        init: InitializerType
+    ) -> Self {
+        let (kernel_height, kernel_width): (usize, usize) = kernel_size;
+        let (input_height, input_width, input_depth): (usize, usize, usize) = input_size;
+
+        let output_size: (usize, usize, usize) = (
+            input_height - kernel_height + 1,
+            input_width - kernel_width + 1,
+            number_of_kernel
+        );
+        let (output_height, output_width, output_depth): (usize, usize, usize) = output_size;
+
+        Self {
+            kernels: init.initialize_4d(input_height * input_width * input_depth, output_height * output_width * output_depth, (number_of_kernel, kernel_height, kernel_width, input_depth)),
+            bias: init.initialize(input_height * input_width * input_depth, output_height * output_width * output_depth, (number_of_kernel, 1)),
+            input: None,
+            kernel_gradient: None,
+            bias_gradient: None,
+        }
+    }
+}
+
+impl ConvolutionalLayer {
+    fn feed_forward(&mut self, input: &Array3<f64>) -> Array3<f64> {
+        self.input = Some(input.clone());
+        let (number_of_kernel, kernel_height, kernel_width, kernel_depth): (usize, usize, usize, usize) = self.kernels.dim();
+        let (input_height, input_width, input_depth): (usize, usize, usize) = input.dim();
+        assert_eq!(input_depth, kernel_depth, "Input depth must match kernel depth");
+
+        let output_size: (usize, usize, usize) = (
+            input_height - kernel_height + 1,
+            input_width - kernel_width + 1,
+            number_of_kernel
+        );
+        let (output_height, output_width, _): (usize, usize, usize) = output_size;
+        
+        let mut output: Array3<f64> = Array3::zeros(output_size);
+
+        for index_kernel in 0..number_of_kernel {
+            let kernel = self.kernels.slice(s![index_kernel, .., .., ..]);
+            for y in 0..output_height {
+                for x in 0..output_width {
+                    let input_slice = input.slice(s![y..y + kernel_height, x..x + kernel_width, ..]);
+                    let convolution_result = (&input_slice * &kernel).sum() + self.bias[[index_kernel, 1]];
+                    output[[y, x, index_kernel]] = convolution_result.max(0.0);
+                }
+            }
+        }
+        output
+    }
+
+    fn propagate_backward(&mut self, output_gradient: &Array3<f64>) -> Array3<f64> {
+        let (number_of_kernels, kernel_height, kernel_width, _) = self.kernels.dim();
+        let (input_height, input_width, input_depth) = self.input.as_ref().unwrap().dim();
+        let (output_height, output_width, _): (usize, usize, usize) = output_gradient.dim();
+
+        let mut input_gradient = Array3::<f64>::zeros((input_height, input_width, input_depth));
+
+        for index_kernel in 0..number_of_kernels {
+            let kernel = self.kernels.slice(s![index_kernel, .., .., ..]);
+            for y in 0..output_height {
+                for x in 0..output_width {
+                    if self.input.as_ref().unwrap()[[y, x, index_kernel]] <= 0.0 {
+                        continue;
+                    }
+                    let grad = output_gradient[[y, x, index_kernel]];
+
+                    let mut input_slice = input_gradient.slice_mut(s![y..y + kernel_height, x..x + kernel_width, ..]);
+
+                    Zip::from(&mut input_slice)
+                        .and(kernel)
+                        .for_each(|input_val, &kernel_val| {
+                            *input_val += grad * kernel_val;
+                        });
+
+                    let input_slice = self.input.as_ref().unwrap().slice(s![y..y + kernel_height, x..x + kernel_width, ..]);
+                    let mut kernel_change_slice = self.kernel_gradient.unwrap().slice_mut(s![index_kernel, .., .., ..]);
+
+                    Zip::from(&mut kernel_change_slice)
+                        .and(input_slice)
+                        .for_each(|kernel_change_val, &input_val| {
+                            *kernel_change_val += grad * input_val;
+                        });
+
+                    self.bias_gradient.unwrap()[[index_kernel, 1]] += grad;
+                }
+            }
+        }
+
+        // Apply gradients
+        self.kernels -= &(self.kernel_gradient.mapv(|x| x));
+        self.bias -= &(self.bias_gradient.mapv(|x| x));
+
+        input_gradient
+    }
 }
