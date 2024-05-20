@@ -1,5 +1,8 @@
-use std::fmt::Display;
-use std::any::Any;
+use std::{
+    any::Any,
+    fmt::{Display, Write},
+};
+
 use ndarray::{Array2, Array3, Array4, s, Zip};
 use thiserror::Error;
 
@@ -261,17 +264,21 @@ impl ConvolutionalLayer {
     }
 
     fn propagate_backward(&mut self, output_gradient: &Array3<f64>) -> Array3<f64> {
-        let (number_of_kernels, kernel_height, kernel_width, _) = self.kernels.dim();
-        let (input_height, input_width, input_depth) = self.input.as_ref().unwrap().dim();
+        let (number_of_kernels, kernel_height, kernel_width, input_depth) = self.kernels.dim();
+        let (input_height, input_width, _) = self.input.as_ref().unwrap().dim();
         let (output_height, output_width, _): (usize, usize, usize) = output_gradient.dim();
-
+        
         let mut input_gradient = Array3::<f64>::zeros((input_height, input_width, input_depth));
+
+        let kernel_gradient = self.kernel_gradient.as_mut().expect("Can't modify kernel in conv layer");
+        let bias_gradient = self.bias_gradient.as_mut().expect("Can't modify bias in conv layer");
+        let input = self.input.as_ref().unwrap();
 
         for index_kernel in 0..number_of_kernels {
             let kernel = self.kernels.slice(s![index_kernel, .., .., ..]);
             for y in 0..output_height {
                 for x in 0..output_width {
-                    if self.input.as_ref().unwrap()[[y, x, index_kernel]] <= 0.0 {
+                    if input[[y, x, index_kernel]] <= 0.0 {
                         continue;
                     }
                     let grad = output_gradient[[y, x, index_kernel]];
@@ -279,28 +286,29 @@ impl ConvolutionalLayer {
                     let mut input_slice = input_gradient.slice_mut(s![y..y + kernel_height, x..x + kernel_width, ..]);
 
                     Zip::from(&mut input_slice)
-                        .and(kernel)
+                        .and(&kernel)
                         .for_each(|input_val, &kernel_val| {
                             *input_val += grad * kernel_val;
                         });
 
-                    let input_slice = self.input.as_ref().unwrap().slice(s![y..y + kernel_height, x..x + kernel_width, ..]);
-                    let mut kernel_change_slice = self.kernel_gradient.unwrap().slice_mut(s![index_kernel, .., .., ..]);
+                    let input_slice = input.slice(s![y..y + kernel_height, x..x + kernel_width, ..]);
+                    let mut kernel_change_slice = kernel_gradient.slice_mut(s![index_kernel, .., .., ..]);
 
                     Zip::from(&mut kernel_change_slice)
-                        .and(input_slice)
+                        .and(&input_slice)
                         .for_each(|kernel_change_val, &input_val| {
                             *kernel_change_val += grad * input_val;
                         });
 
-                    self.bias_gradient.unwrap()[[index_kernel, 1]] += grad;
+                    bias_gradient[[index_kernel, 1]] += grad;
                 }
             }
         }
 
-        // Apply gradients
-        self.kernels -= &(self.kernel_gradient.mapv(|x| x));
-        self.bias -= &(self.bias_gradient.mapv(|x| x));
+        // Apply gradients with a learning rate (example: 0.01)
+        let learning_rate = 0.01;
+        self.kernels -= &(kernel_gradient.mapv(|x| x * learning_rate));
+        self.bias -= &(bias_gradient.mapv(|x| x * learning_rate));
 
         input_gradient
     }

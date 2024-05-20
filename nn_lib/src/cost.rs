@@ -33,17 +33,18 @@ impl CostFunction {
     pub fn cost(&self, output: &Array2<f64>, observed: &Array2<f64>) -> f64 {
         match self {
             Self::CrossEntropy => {
-                let epsilon = 1e-15;
+                let epsilon = 1e-7;
                 let clipped_output = output.mapv(|x| x.clamp(epsilon, 1.0 - epsilon));
                 let correct_class = observed.iter().position(|&x| x == 1.0).unwrap();
                 -f64::ln(clipped_output[[correct_class, 0]])
             }
             Self::BinaryCrossEntropy => {
-                let epsilon = 1e-15;
+                let epsilon = 1e-7;
                 let clipped_output = output.mapv(|x| x.clamp(epsilon, 1.0 - epsilon));
-                let log_loss = observed * &clipped_output.mapv(f64::ln)
-                    + (1.0 - observed) * &((1.0 - clipped_output).mapv(f64::ln));
-                -log_loss.mean().unwrap()
+                -(observed * &clipped_output.mapv(f64::ln)
+                    + (1.0 - observed) * &((1.0 - clipped_output).mapv(f64::ln)))
+                    .mean()
+                    .unwrap()
             }
             Self::Mse => {
                 let diff = output - observed;
@@ -71,14 +72,10 @@ impl CostFunction {
             // We use this expression over the one that give dc/ds with s the softmax output
             // because the calculation is easy and that prevent us for back propagating through the
             // softmax function
-            Self::CrossEntropy => {
-                let softmax = Activation::Softmax;
-                softmax.apply(output) - observed
-            }
-            Self::BinaryCrossEntropy => {
-                let sigmoid = Activation::Sigmoid;
-                sigmoid.apply(output) - observed
-            }
+            // THE CROSS ENTROPY AND SOFTMAX are given considering that the sigmiod / softmax layer
+            // has been the last layer so output is already a probability distribution
+            Self::CrossEntropy => output - observed,
+            Self::BinaryCrossEntropy => output - observed,
             Self::Mse => 2f64 * (output - observed) / output.len() as f64,
         }
     }

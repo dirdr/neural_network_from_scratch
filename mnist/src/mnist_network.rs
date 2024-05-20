@@ -44,7 +44,7 @@ pub fn build_network() -> anyhow::Result<()> {
             .into_shape((output_train.len(), number_of_class, 1))
             .expect("failed to reshape one hot encoded vector");
 
-        network.train_par(input_train, output_train, 1000);
+        // network.train_par(input_train, output_train, 1000, 1);
     }
 
     Ok(())
