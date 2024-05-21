@@ -1,6 +1,6 @@
-use std::fmt::{Display, Write};
+use std::fmt::Display;
 
-use ndarray::Array2;
+use ndarray::ArrayD;
 
 pub enum Activation {
     ReLU,
@@ -24,7 +24,7 @@ impl Activation {
     /// Apply the activation to a vector, return a vector (shape (i, 1))
     /// # Arguments
     /// * `input` - input vector (shape (i, 1))
-    pub fn apply(&self, input: &Array2<f64>) -> Array2<f64> {
+    pub fn apply(&self, input: &ArrayD<f64>) -> ArrayD<f64> {
         match self {
             Self::ReLU => input.mapv(|e| 0f64.max(e)),
             Self::Tanh => input.mapv(|e| e.tanh()),
@@ -43,7 +43,7 @@ impl Activation {
     /// jacobian matrices, and in practice we don't do back propagation through softmax output
     /// layer, the gradient of the cost function is calcualted with respect to the output logits,
     /// not softmax outputs.
-    pub fn apply_derivative(&self, input: &Array2<f64>) -> Array2<f64> {
+    pub fn apply_derivative(&self, input: &ArrayD<f64>) -> ArrayD<f64> {
         match self {
             Self::ReLU => input.mapv(|e| if e > 0f64 { 1f64 } else { 0f64 }),
             Self::Tanh => input.mapv(|e| 1f64 - e.tanh().powi(2)),

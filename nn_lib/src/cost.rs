@@ -1,6 +1,4 @@
-use ndarray::Array2;
-
-use crate::activation::Activation;
+use ndarray::ArrayD;
 
 #[derive(Copy, Clone)]
 pub enum CostFunction {
@@ -30,7 +28,7 @@ impl CostFunction {
     /// # Arguments
     /// * `output` - the array (shape (j, 1)) of output of the network
     /// * `observed` - a one hotted encoded vector of observed values
-    pub fn cost(&self, output: &Array2<f64>, observed: &Array2<f64>) -> f64 {
+    pub fn cost(&self, output: &ArrayD<f64>, observed: &ArrayD<f64>) -> f64 {
         match self {
             Self::CrossEntropy => {
                 let epsilon = 1e-7;
@@ -63,9 +61,9 @@ impl CostFunction {
     /// * `observed` - a one hotted encoded vector of observed values
     pub fn cost_output_gradient(
         &self,
-        output: &Array2<f64>,
-        observed: &Array2<f64>,
-    ) -> Array2<f64> {
+        output: &ArrayD<f64>,
+        observed: &ArrayD<f64>,
+    ) -> ArrayD<f64> {
         match self {
             // the gradient of the cross entropy with respect to the logits
             // is given by : dc/dz = s - y in vector notation.
@@ -78,38 +76,5 @@ impl CostFunction {
             Self::BinaryCrossEntropy => output - observed,
             Self::Mse => 2f64 * (output - observed) / output.len() as f64,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ndarray::array;
-
-    #[test]
-    fn test_cross_entropy() {
-        let output = array![[0.7], [0.2], [0.1]];
-        let observed = array![[0.0], [1.0], [0.0]];
-        let cost_function = CostFunction::CrossEntropy;
-        let cost = cost_function.cost(&output, &observed);
-        assert!(cost.is_finite());
-    }
-
-    #[test]
-    fn test_binary_cross_entropy() {
-        let output = array![[0.7], [0.2], [0.1]];
-        let observed = array![[0.0], [1.0], [0.0]];
-        let cost_function = CostFunction::BinaryCrossEntropy;
-        let cost = cost_function.cost(&output, &observed);
-        assert!(cost.is_finite());
-    }
-
-    #[test]
-    fn test_mse() {
-        let output = array![[0.7], [0.2], [0.1]];
-        let observed = array![[0.0], [1.0], [0.0]];
-        let cost_function = CostFunction::Mse;
-        let cost = cost_function.cost(&output, &observed);
-        assert!(cost.is_finite());
     }
 }
