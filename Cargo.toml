@@ -7,7 +7,7 @@ edition = "2021"
 authors = ["Adrien Pelfresne", "Alexis Vapaille"]
 
 [dependencies]
-clap = "4.5.4"
+clap = { version = "4.5.4", features = ["derive"] }
 pretty_env_logger = "0.5.0"
 nn_lib = {path = "./nn_lib/"}
 mnist = {path = "./mnist/"}

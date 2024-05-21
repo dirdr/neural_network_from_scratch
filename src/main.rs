@@ -1,12 +1,24 @@
 mod app;
+mod args;
 mod xor;
 
+use args::{Arguments, Exemple};
+use clap::Parser;
 use eframe::NativeOptions;
 use egui::{epaint::PathShape, Color32, Pos2, Shape, Stroke, Style, Vec2, Visuals};
 use image::{GrayImage, ImageBuffer};
 
 fn main() -> anyhow::Result<()> {
     pretty_env_logger::init();
+    let cli = Arguments::parse();
+
+    match cli.run {
+        Exemple::Xor => {
+            let net = xor::build_neural_net()?;
+            xor::start(net)?;
+        }
+        Exemple::Mnist => todo!(),
+    }
     // let painter_size = Vec2::splat(280.0);
     // let mut paths: Vec<Vec<Pos2>> = Vec::new();
     // let mut current_path: Vec<Pos2> = Vec::new();
@@ -61,8 +73,6 @@ fn main() -> anyhow::Result<()> {
     //         });
     //     }),
     // );
-    let net = xor::build_neural_net()?;
-    xor::start(net)?;
     Ok(())
 }
 
