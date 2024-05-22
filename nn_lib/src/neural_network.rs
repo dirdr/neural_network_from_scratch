@@ -95,7 +95,9 @@ impl NeuralNetwork {
         Ok(output)
     }
 
-    pub fn predict_all(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {}
+    pub fn predict_all(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
+        todo!()
+    }
 
     /// Train the neural network with Gradient descent Algorithm
     /// # Arguments

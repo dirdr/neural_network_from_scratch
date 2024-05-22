@@ -1,7 +1,7 @@
 use std::{any::Any, fmt::Display};
 
 use log::debug;
-use ndarray::{ArrayD, ShapeError};
+use ndarray::{linalg::Dot, ArrayD, Axis, ShapeError};
 use thiserror::Error;
 
 use crate::{activation::Activation, initialization::InitializerType};
@@ -16,30 +16,17 @@ pub enum LayerError {
 }
 
 /// The `Layer` trait need to be implemented by any nn layer
+//
+/// a layer is defined as input nodes x and output nodes y, and have two main functions,
+/// `feed_forward()` and `propagate_backward()`
 ///
-// In this library, we use a 'Layer-activation decoupling' paradigm, where we separate the 'Dense'
-// layers and the 'activation functions'.
-/// Instead of defining the activation function inside the layer's output calculation,
-/// a `ActivationLayer` is provided, that you will need to plug just after your layer.
-///
-/// This serve multiple purpose, the first one is separation of concerns, each layer handle his
-/// gradient and forward calculation, the second is to make it easy to have fully connected layer
-/// without activation function. The third reason is that we found that more instinctive and
-/// natural to implement
-
-/// a layer is defined as input nodes x and output nodes y
-/// feed forward calculate the output nodes y with respect to the input nodes x
-/// `propagate_backward` is responsible for two things :
-/// 1: update trainable parameters (if any) in the layer (weights, bias)
-/// 2: return the input gradient with respect to the output gradient,
-/// the second role is used to propagate partial derivative backward in the network.
-/// the layer inputs have shape (i, 1), layer outputs have shape (j, 1).
+/// Layer implementations in this library support batch processing, (i.e processing more than one
+/// data point at once).
+/// The convention choosen in the layer implementations is (n, features) where n is the number of
+/// sample in the batch
 pub trait Layer: Send + Sync {
     fn feed_forward(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError>;
 
-    /// Return the gradient of the cost function with respecct to the layer input values
-    /// # Arguments
-    /// * `output_gradient` - Output gradient vector shape (j, 1))
     fn propagate_backward(
         &mut self,
         output_gradient: &ArrayD<f64>,
@@ -50,7 +37,6 @@ pub trait Layer: Send + Sync {
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-// TODO comment and explain the use of this
 pub trait Trainable {
     fn get_parameters(&self) -> Vec<ArrayD<f64>>;
 
@@ -59,18 +45,10 @@ pub trait Trainable {
     fn get_gradients(&self) -> Vec<ArrayD<f64>>;
 }
 
-/// `Dense` Layer (ie: Fully connected layer)
-/// weights matrices follow the conversion output first
-/// weights_ji connect output node y_j to input node x_i
-/// bias b_i is for the calculation of output node y_i
 pub struct DenseLayer {
-    /// shape (j, i) matrices of weights, w_ji connect node j to node i.
     weights: ArrayD<f64>,
-    /// shape (j, 1) vector of bias
     bias: ArrayD<f64>,
-    /// input passed during the feed forward step
-    // TODO utiliser un Arc pour stocker mon machin
-    last_input: Option<ArrayD<f64>>,
+    last_batch_input: Option<ArrayD<f64>>,
     // store those for optimizer access (from the trait Trainable)
     weights_gradient: Option<ArrayD<f64>>,
     biases_gradient: Option<ArrayD<f64>>,
@@ -85,7 +63,7 @@ impl DenseLayer {
         Self {
             weights: init.initialize(input_size, output_size, &[output_size, input_size]),
             bias: init.initialize(input_size, output_size, &[output_size, 1]),
-            last_input: None,
+            last_batch_input: None,
             weights_gradient: None,
             biases_gradient: None,
             input_size,
@@ -95,54 +73,64 @@ impl DenseLayer {
 }
 
 impl Layer for DenseLayer {
-    /// Calculate the output vector (shape (j, 1))
-    /// and store the passed input inside the layer to be used in the backpropagation
+    /// Return the output matrices of this `DenseLayer` (shape (n, j)), while storing the input matrices
+    /// (shape (n, i))
+    ///
+    /// where **n** is the number of samples, **j** is the layer output size and **i** is the layer
+    /// input size.
+    ///
+    /// # Arguments
+    /// * `input` - shape (n, i)
     fn feed_forward(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
-        let input_2d = input.view().into_shape((self.input_size, 1))?;
+        self.last_batch_input = Some(input.clone());
 
+        let batch_size = input.shape()[0];
+        let input_2d = input.view().into_shape((batch_size, self.input_size))?;
         let weight_2d = self
             .weights
             .view()
-            .into_shape((self.output_size, self.input_size))?;
+            .into_shape((self.input_size, self.output_size))?;
 
-        self.last_input = Some(input.clone());
-
-        let output = weight_2d.dot(&input_2d) + &self.bias;
-        Ok(output.into_dyn())
+        Ok((input_2d.dot(&weight_2d) + &self.bias).into_dyn())
     }
 
-    /// Return the input gradient vector (shape (i, 1)) by processing the output gradient vector
+    /// Return the input gradient vector (shape (n, i)), by processing the output gradient vector
+    /// (shape (n, j)).
+    ///
+    /// This function also compute and store the current batch weights and biases gradient in the layer.
+    ///
     /// # Arguments
-    /// * `input` - (shape (i, 1))
-    /// * `output_gradient` - (shape (j, 1))
+    /// * `input` - (shape (n, i))
+    /// * `output_gradient` - (shape (n, j))
     fn propagate_backward(
         &mut self,
         output_gradient: &ArrayD<f64>,
     ) -> Result<ArrayD<f64>, LayerError> {
-        // Ensure `self.input` is correctly set from forward propagation
-        let input = self
-            .last_input
-            .as_ref()
-            .expect("access to an unset input inside backpropagation");
+        let input_gradient = match self.last_batch_input.as_ref() {
+            Some(input) => {
+                let batch_size = output_gradient.shape()[0];
+                let output_grad_2d = output_gradient
+                    .view()
+                    .into_shape((batch_size, self.output_size))?;
 
-        // Ensure both input and output_gradient are two-dimensional
-        let output_grad_2d = output_gradient.view().into_shape((self.output_size, 1))?;
+                let input_2d = input.view().into_shape((batch_size, self.input_size))?;
 
-        let input_2d = input.view().into_shape((self.input_size, 1))?;
+                let weight_2d = self
+                    .weights
+                    .view()
+                    .into_shape((self.input_size, self.output_size))?;
 
-        let weight_2d = self
-            .weights
-            .view()
-            .into_shape((self.output_size, self.input_size))?;
+                let weights_gradient = output_grad_2d.dot(&input_2d.t());
+                let biases_gradient = output_grad_2d.sum_axis(Axis(0));
 
-        let weights_gradient = output_grad_2d.dot(&input_2d.t());
+                self.weights_gradient = Some(weights_gradient.to_owned().into_dyn());
+                self.biases_gradient = Some(biases_gradient.into_dyn());
 
-        let input_gradient = weight_2d.t().dot(&output_grad_2d);
-
-        self.weights_gradient = Some(weights_gradient.to_owned().into_dyn());
-        self.biases_gradient = Some(output_grad_2d.to_owned().into_dyn());
-
-        Ok(input_gradient.into_dyn())
+                Ok((output_grad_2d.dot(&weight_2d.t())).into_dyn())
+            }
+            None => Err(LayerError::IllegalInputAccess),
+        };
+        input_gradient
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -197,23 +185,19 @@ impl ActivationLayer {
     }
 }
 
-impl Display for ActivationLayer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("Activationlayer : {}\n", self.activation))
-    }
-}
-
 impl Layer for ActivationLayer {
-    /// apply the activation function to each input (shape (i * 1))
-    /// return an output vector of shape (i * 1).
+    /// Return a matrice (shape (n, i)) with the activation function applied to a batch
+    ///
+    /// # Arguments
+    /// * `input` - shape (n, i)
     fn feed_forward(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
         self.input = Some(input.clone());
         Ok(self.activation.apply(input))
     }
 
-    /// return the input gradient with respect to the activation layer output gradient
-    /// because the activation layer doesn't have trainable parameters, we don't care about the
-    /// learning_rate.
+    /// Return the input gradient (shape (n, i)) of this `ActivationLayer` by processing the output gradient.
+    /// # Arguments
+    /// * `output_gradient` shape (n, j)
     fn propagate_backward(
         &mut self,
         output_gradient: &ArrayD<f64>,

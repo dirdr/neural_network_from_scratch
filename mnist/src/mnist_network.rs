@@ -39,6 +39,7 @@ fn get_test_data() -> anyhow::Result<(Array2<f64>, Array3<f64>)> {
     let x = data_set.test.0.mapv(|e| e as f64 / 255f64);
     let outer = x.shape()[0];
     let x = x.into_shape((outer, 28 * 28))?;
+    todo!()
 }
 
 fn one_hot_encode(labels: &ArrayD<u8>, num_classes: usize) -> Array2<f64> {
