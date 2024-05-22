@@ -71,16 +71,8 @@ impl CostFunction {
         observed: &ArrayD<f64>,
     ) -> ArrayD<f64> {
         match self {
-            Self::CrossEntropy => {
-                debug!("output shape : {:?}", output.shape());
-                debug!("observed shape : {:?}", observed.shape());
-                output - observed
-            }
-            Self::BinaryCrossEntropy => {
-                debug!("output shape : {:?}", output.shape());
-                debug!("observed shape : {:?}", observed.shape());
-                output - observed
-            }
+            Self::CrossEntropy => output - observed,
+            Self::BinaryCrossEntropy => output - observed,
             Self::Mse => {
                 let batch_size = output.shape()[0];
                 2f64 * (output - observed) / batch_size as f64

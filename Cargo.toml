@@ -16,7 +16,7 @@ log = "0.4.21"
 egui = "0.27.2"
 eframe = "0.27.2"
 image = "0.25.1"
-ndarray = {version = "0.15.6", features = ["matrixmultiply-threading", "rayon"]}
+ndarray = {version = "0.15.6", features = ["matrixmultiply-threading", "rayon", "blas"]}
 
 [profile.release]
 debug = true

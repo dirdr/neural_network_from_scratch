@@ -1,5 +1,5 @@
-use log::info;
-use ndarray::{arr1, arr2, arr3, Array1, Array2, Array3, ArrayD};
+use log::{debug, info};
+use ndarray::{arr1, arr2, arr3, Array1, Array2, Array3, ArrayD, Axis};
 use nn_lib::{
     activation::Activation,
     cost::CostFunction,
@@ -11,11 +11,11 @@ use nn_lib::{
 
 pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
     Ok(NeuralNetworkBuilder::new()
-        .push(DenseLayer::new(2, 4, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(2, 8, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(4, 1, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(8, 1, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::Sigmoid))
-        .build(GradientDescent::new(0.05), CostFunction::BinaryCrossEntropy)?)
+        .build(GradientDescent::new(0.02), CostFunction::BinaryCrossEntropy)?)
 }
 
 fn get_training_data() -> (Array2<f64>, Array1<f64>) {
@@ -27,19 +27,20 @@ fn get_training_data() -> (Array2<f64>, Array1<f64>) {
 pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
     let (x, y) = get_training_data();
 
-    neural_network.train(x.clone().into_dyn(), y.into_dyn(), 5000, 2)?;
+    neural_network.train(
+        x.clone().into_dyn(),
+        y.insert_axis(Axis(1)).into_dyn(),
+        2000,
+        1,
+    )?;
 
-    let predictions = x
-        .outer_iter()
-        .map(|x| neural_network.predict(&x.to_owned().into_dyn()))
-        .collect::<Result<Vec<ArrayD<_>>, LayerError>>()?;
-
+    let predictions = neural_network.predict(&x.clone().into_dyn())?;
     for (i, x) in x.clone().outer_iter().enumerate() {
         let x1 = x[0];
         let x2 = x[1];
         info!(
             "Xor prediction: {} for input {} {}",
-            predictions[i][[0, 0]],
+            predictions[[i, 0]],
             x1,
             x2
         )

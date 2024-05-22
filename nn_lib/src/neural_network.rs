@@ -7,12 +7,10 @@ use log::debug;
 use ndarray::{ArrayD, Axis};
 use ndarray_rand::rand::seq::SliceRandom;
 use ndarray_rand::rand::thread_rng;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
 pub struct NeuralNetworkBuilder {
-    layers: Vec<Arc<Mutex<dyn Layer>>>,
+    layers: Vec<Box<dyn Layer>>,
 }
 
 #[derive(Error, Debug)]
@@ -35,7 +33,7 @@ impl NeuralNetworkBuilder {
     /// Add a layer to the sequential neural network
     /// in a sequential neural network, layers are added left to right (input -> hidden -> output)
     pub fn push(mut self, layer: impl Layer + 'static) -> NeuralNetworkBuilder {
-        self.layers.push(Arc::new(Mutex::new(layer)));
+        self.layers.push(Box::new(layer));
         self
     }
 
@@ -52,7 +50,7 @@ impl NeuralNetworkBuilder {
         Ok(NeuralNetwork {
             layers: self.layers,
             cost_function,
-            optimizer: Arc::new(Mutex::new(optimizer)),
+            optimizer: Box::new(optimizer),
         })
     }
 }
@@ -83,19 +81,18 @@ pub struct NeuralNetwork {
 
 impl NeuralNetwork {
     /// predict from the neural network
-    /// the shape of the prediction is defined by the neural net's last layer shape.
+    /// the shape of the prediction is (n, dim o) where **dim o** is the dimension of the network
+    /// last layer and **n** is the number of point in the batch.
+    ///
     /// # Arguments
-    /// * `input` : the input of the neural network.
-    pub fn predict(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
+    /// * `input` : batched input, of size (n, dim i) where **dim i** is the dimension of the
+    /// network first layer and **n** is the number of point in the batch.
+    pub fn predict(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
         let mut output = input.clone();
-        for layer in &self.layers {
+        for layer in &mut self.layers {
             output = layer.feed_forward(&output)?;
         }
         Ok(output)
-    }
-
-    pub fn predict_all(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
-        todo!()
     }
 
     /// Train the neural network with Gradient descent Algorithm
@@ -112,6 +109,7 @@ impl NeuralNetwork {
         batch_size: usize,
     ) -> Result<(), LayerError> {
         for e in 0..epochs {
+            debug!("Inside epochs {}", e);
             assert!(x_train.shape()[0] == y_train.shape()[0]);
 
             let mut indices = (0..x_train.shape()[0]).collect::<Vec<_>>();
@@ -122,14 +120,10 @@ impl NeuralNetwork {
                 let batched_x = x_train.select(Axis(0), batch_i);
                 // TODO vérifier si ca ca marche bien, et soit mieux spécifier dans la doc le
                 // format de données attendu, soit faire des check avant de reshape volontairement
-                let batched_y = y_train
-                    .select(Axis(0), batch_i)
-                    .insert_axis(Axis(y_train.ndim()));
+                let batched_y = y_train.select(Axis(0), batch_i);
                 self.process_batch(batched_x, batched_y)?;
                 Ok::<(), LayerError>(())
             })?;
-
-            debug!("Inside epochs {}", e + 1);
         }
         Ok(())
     }
@@ -139,27 +133,22 @@ impl NeuralNetwork {
         batched_x: ArrayD<f64>,
         batched_y: ArrayD<f64>,
     ) -> Result<(), LayerError> {
-        debug!("batched_x shape {:?}", batched_x.shape());
-        debug!("batched_y shape {:?}", batched_y.shape());
+        // debug!("batched x shape : {:?}", batched_x.shape());
+        // debug!("batched y shape : {:?}", batched_y.shape());
         let output = self.predict(&batched_x)?;
-        debug!("after predict ");
         //let cost = self.cost_function.cost(&output, &batched_y);
         self.backpropagation(output, batched_y)?;
         Ok(())
     }
 
     fn backpropagation(
-        &self,
+        &mut self,
         net_output: ArrayD<f64>,
         observed: ArrayD<f64>,
     ) -> Result<(), LayerError> {
         let mut grad = self
             .cost_function
             .cost_output_gradient(&net_output, &observed);
-        debug!(
-            "successfully calculated the gradient of the cost function, shape : {:?}",
-            grad.shape()
-        );
         // if the cost function is dependant of the last layer, the gradient calculation
         // have been done with respect to the net logits directly, thus skip the last layer
         // in the gradients backpropagation
@@ -169,7 +158,7 @@ impl NeuralNetwork {
             0
         };
 
-        for layer in self.layers.iter().rev().skip(skip_layer) {
+        for layer in self.layers.iter_mut().rev().skip(skip_layer) {
             grad = layer.propagate_backward(&grad)?;
 
             // Downcast to Trainable and call optimizer's step method if possible

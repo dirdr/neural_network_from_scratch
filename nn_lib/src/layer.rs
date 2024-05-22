@@ -1,6 +1,5 @@
-use std::{any::Any, fmt::Display};
+use std::any::Any;
 
-use log::debug;
 use ndarray::{linalg::Dot, ArrayD, Axis, ShapeError};
 use thiserror::Error;
 
@@ -82,6 +81,10 @@ impl Layer for DenseLayer {
     /// # Arguments
     /// * `input` - shape (n, i)
     fn feed_forward(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
+        // TODO faire une fonction feed_forward qui prend juste une référence et une fonction
+        // feed_forward_mut qui prend une référence mutable pour sauvegarder le dernier input dans
+        // le réseau
+        // TODO trouver une solution inplace pour éviter de cloner
         self.last_batch_input = Some(input.clone());
 
         let batch_size = input.shape()[0];
@@ -109,26 +112,20 @@ impl Layer for DenseLayer {
         let input_gradient = match self.last_batch_input.as_ref() {
             Some(input) => {
                 let batch_size = output_gradient.shape()[0];
-                debug!("before reshaped output grad");
                 let output_grad_2d = output_gradient
                     .view()
                     .into_shape((batch_size, self.output_size))?;
 
-                debug!("successfully reshaped output grad");
-
                 let input_2d = input.view().into_shape((batch_size, self.input_size))?;
-                debug!("successfully reshaped input");
 
                 let weight_2d = self
                     .weights
                     .view()
                     .into_shape((self.input_size, self.output_size))?;
 
-                debug!("successfully reshaped weight");
-
-                let weights_gradient = input_2d.t().dot(&output_grad_2d);
-                debug!("successfully calculated weight gradient ");
-                let biases_gradient = output_grad_2d.sum_axis(Axis(0));
+                // mean relative to the batch
+                let weights_gradient = input_2d.t().dot(&output_grad_2d) / batch_size as f64;
+                let biases_gradient = output_grad_2d.sum_axis(Axis(0)) / batch_size as f64;
 
                 self.weights_gradient = Some(weights_gradient.to_owned().into_dyn());
                 self.biases_gradient = Some(biases_gradient.into_dyn());
