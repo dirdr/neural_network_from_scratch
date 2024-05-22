@@ -1,5 +1,6 @@
 use std::{any::Any, fmt::Display};
 
+use log::debug;
 use ndarray::{ArrayD, ShapeError};
 use thiserror::Error;
 
@@ -217,11 +218,15 @@ impl Layer for ActivationLayer {
         &mut self,
         output_gradient: &ArrayD<f64>,
     ) -> Result<ArrayD<f64>, LayerError> {
-        let input = self
-            .input
-            .as_ref()
-            .unwrap_or_else(|| panic!("access to a unset input inside backproapgation"));
-        Ok(output_gradient * self.activation.apply_derivative(input))
+        let input_gradient = match self.input.as_ref() {
+            Some(input) => {
+                // debug!(" input shape {:?}", input.shape());
+                // debug!(" ourput gradient shape {:?}", output_gradient.shape());
+                Ok(output_gradient * self.activation.apply_derivative(input))
+            }
+            None => Err(LayerError::IllegalInputAccess),
+        };
+        input_gradient
     }
 
     fn as_any(&self) -> &dyn Any {

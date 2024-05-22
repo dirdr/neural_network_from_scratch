@@ -3,6 +3,7 @@ use crate::{
     layer::{DenseLayer, Layer, LayerError},
     optimizer::Optimizer,
 };
+use log::debug;
 use ndarray::{ArrayD, Axis};
 use ndarray_rand::rand::seq::SliceRandom;
 use ndarray_rand::rand::thread_rng;
@@ -94,6 +95,8 @@ impl NeuralNetwork {
         Ok(output)
     }
 
+    pub fn predict_all(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {}
+
     /// Train the neural network with Gradient descent Algorithm
     /// # Arguments
     /// * `x_train` - an ArrayD of which the outer dimension need to contains the data, for exemple
@@ -107,7 +110,7 @@ impl NeuralNetwork {
         epochs: usize,
         batch_size: usize,
     ) -> Result<(), LayerError> {
-        for _ in 0..epochs {
+        for e in 0..epochs {
             assert!(x_train.shape()[0] == y_train.shape()[0]);
 
             let mut indices = (0..x_train.shape()[0]).collect::<Vec<_>>();
@@ -128,6 +131,8 @@ impl NeuralNetwork {
                 self.process_batch(batched_x, batched_y)?;
                 Ok::<(), LayerError>(())
             })?;
+
+            debug!("Inside epochs {}", e + 1);
         }
         Ok(())
     }
@@ -160,7 +165,9 @@ impl NeuralNetwork {
                 // Backpropagation (assuming this does not return a Result, wrap in Ok if it can error)
                 self.backpropagation(output, y)?;
                 Ok::<(), LayerError>(())
-            })?; //let error = Arc::try_unwrap(error).unwrap().into_inner().unwrap() / batched_x.len() as f64;
+            })?;
+        let error = Arc::try_unwrap(error).unwrap().into_inner().unwrap() / batched_x.len() as f64;
+        //debug!("error for the batch : {}", error);
         Ok(())
     }
 

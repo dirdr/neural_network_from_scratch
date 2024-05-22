@@ -1,3 +1,4 @@
+use log::debug;
 use ndarray::ArrayD;
 
 #[derive(Copy, Clone)]
@@ -72,8 +73,16 @@ impl CostFunction {
             // softmax function
             // THE CROSS ENTROPY AND SOFTMAX are given considering that the sigmiod / softmax layer
             // has been the last layer so output is already a probability distribution
-            Self::CrossEntropy => output - observed,
-            Self::BinaryCrossEntropy => output - observed,
+            Self::CrossEntropy => {
+                // debug!("output shape : {:?}", output.shape());
+                // debug!("observed shape : {:?}", observed.shape());
+                output - observed
+            }
+            Self::BinaryCrossEntropy => {
+                // debug!("output shape : {:?}", output.shape());
+                // debug!("observed shape : {:?}", observed.shape());
+                output - observed
+            }
             Self::Mse => 2f64 * (output - observed) / output.len() as f64,
         }
     }
