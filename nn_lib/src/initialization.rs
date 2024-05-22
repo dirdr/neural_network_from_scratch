@@ -11,19 +11,16 @@ pub enum InitializerType {
 }
 
 impl InitializerType {
-    /// Initialize a new Matrices and fills it according to the `InitializerType`
+    /// Return a new multi-dimensional array initialized according to the `InitializerType`
+    ///
     /// # Arguments
-    /// * `input_size` - The number of input for the initialized layer
+    /// * `fan_in` - The number of input in the layer
+    /// * `fan_out` The number of output in the layer
     /// * `shape` - output matrices shape
-    pub fn initialize(
-        &self,
-        input_size: usize,
-        output_size: usize,
-        shape: &[usize],
-    ) -> ArrayD<f64> {
+    pub fn initialize(&self, fan_in: usize, fan_out: usize, shape: &[usize]) -> ArrayD<f64> {
         match self {
             InitializerType::He => {
-                let std_dev = (2.0 / input_size as f64).sqrt();
+                let std_dev = (2.0 / fan_in as f64).sqrt();
                 let normal = Normal::new(0.0, std_dev).expect("Can't create normal distribution");
                 ArrayD::random(shape, normal)
             }
@@ -33,7 +30,7 @@ impl InitializerType {
                 ArrayD::random(shape, normal)
             }
             InitializerType::GlorotUniform => {
-                let limit = (6.0 / (input_size + output_size) as f64).sqrt();
+                let limit = (6.0 / (fan_in + fan_out) as f64).sqrt();
                 let uniform = Uniform::new(-limit, limit);
                 ArrayD::random(shape, uniform)
             }

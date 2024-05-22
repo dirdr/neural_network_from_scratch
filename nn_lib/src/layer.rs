@@ -61,8 +61,8 @@ impl DenseLayer {
     /// initialization parameters
     pub fn new(input_size: usize, output_size: usize, init: InitializerType) -> Self {
         Self {
-            weights: init.initialize(input_size, output_size, &[output_size, input_size]),
-            bias: init.initialize(input_size, output_size, &[output_size, 1]),
+            weights: init.initialize(input_size, output_size, &[input_size, output_size]),
+            bias: init.initialize(input_size, output_size, &[output_size]),
             last_batch_input: None,
             weights_gradient: None,
             biases_gradient: None,
@@ -109,18 +109,25 @@ impl Layer for DenseLayer {
         let input_gradient = match self.last_batch_input.as_ref() {
             Some(input) => {
                 let batch_size = output_gradient.shape()[0];
+                debug!("before reshaped output grad");
                 let output_grad_2d = output_gradient
                     .view()
                     .into_shape((batch_size, self.output_size))?;
 
+                debug!("successfully reshaped output grad");
+
                 let input_2d = input.view().into_shape((batch_size, self.input_size))?;
+                debug!("successfully reshaped input");
 
                 let weight_2d = self
                     .weights
                     .view()
                     .into_shape((self.input_size, self.output_size))?;
 
-                let weights_gradient = output_grad_2d.dot(&input_2d.t());
+                debug!("successfully reshaped weight");
+
+                let weights_gradient = input_2d.t().dot(&output_grad_2d);
+                debug!("successfully calculated weight gradient ");
                 let biases_gradient = output_grad_2d.sum_axis(Axis(0));
 
                 self.weights_gradient = Some(weights_gradient.to_owned().into_dyn());

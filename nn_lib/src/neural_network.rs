@@ -120,16 +120,12 @@ impl NeuralNetwork {
             indices.shuffle(&mut rng);
 
             indices.chunks(batch_size).try_for_each(|batch_i| {
-                let batched_x = batch_i
-                    .iter()
-                    .map(|&i| x_train.index_axis(Axis(0), i).to_owned())
-                    .collect::<Vec<ArrayD<_>>>();
-
-                let batched_y = batch_i
-                    .iter()
-                    .map(|&i| y_train.index_axis(Axis(0), i).to_owned())
-                    .collect::<Vec<ArrayD<_>>>();
-
+                let batched_x = x_train.select(Axis(0), batch_i);
+                // TODO vérifier si ca ca marche bien, et soit mieux spécifier dans la doc le
+                // format de données attendu, soit faire des check avant de reshape volontairement
+                let batched_y = y_train
+                    .select(Axis(0), batch_i)
+                    .insert_axis(Axis(y_train.ndim()));
                 self.process_batch(batched_x, batched_y)?;
                 Ok::<(), LayerError>(())
             })?;
@@ -141,35 +137,15 @@ impl NeuralNetwork {
 
     pub fn process_batch(
         &mut self,
-        batched_x: Vec<ArrayD<f64>>,
-        batched_y: Vec<ArrayD<f64>>,
+        batched_x: ArrayD<f64>,
+        batched_y: ArrayD<f64>,
     ) -> Result<(), LayerError> {
-        let error = Arc::new(Mutex::new(0.0));
-        batched_x
-            .par_iter()
-            .zip(batched_y.par_iter())
-            .try_for_each(|(x, y)| {
-                let x = x.to_owned();
-                let y = y.to_owned();
-
-                // The predict method might return an error, handle it here
-                let output = self.predict(&x)?;
-
-                // Cost evaluation (assuming cost function always succeeds, wrap in Ok if it can error)
-                let cost = self.cost_function.cost(&output, &y);
-
-                // Update shared error
-                {
-                    let mut error_guard = error.lock().unwrap();
-                    *error_guard += cost;
-                }
-
-                // Backpropagation (assuming this does not return a Result, wrap in Ok if it can error)
-                self.backpropagation(output, y)?;
-                Ok::<(), LayerError>(())
-            })?;
-        let error = Arc::try_unwrap(error).unwrap().into_inner().unwrap() / batched_x.len() as f64;
-        //debug!("error for the batch : {}", error);
+        debug!("batched_x shape {:?}", batched_x.shape());
+        debug!("batched_y shape {:?}", batched_y.shape());
+        let output = self.predict(&batched_x)?;
+        debug!("after predict ");
+        //let cost = self.cost_function.cost(&output, &batched_y);
+        self.backpropagation(output, batched_y)?;
         Ok(())
     }
 
@@ -181,6 +157,10 @@ impl NeuralNetwork {
         let mut grad = self
             .cost_function
             .cost_output_gradient(&net_output, &observed);
+        debug!(
+            "successfully calculated the gradient of the cost function, shape : {:?}",
+            grad.shape()
+        );
         // if the cost function is dependant of the last layer, the gradient calculation
         // have been done with respect to the net logits directly, thus skip the last layer
         // in the gradients backpropagation

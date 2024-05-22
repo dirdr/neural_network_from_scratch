@@ -1,10 +1,8 @@
 use log::debug;
-use ndarray::ArrayD;
+use ndarray::{ArrayD, Axis};
 
 #[derive(Copy, Clone)]
 pub enum CostFunction {
-    /// The use case for CrossEntropy, is for our classification nn, taking
-    /// softmax outputs and calculating loss.
     CrossEntropy,
     BinaryCrossEntropy,
     Mse,
@@ -25,25 +23,29 @@ impl CostFunction {
         }
     }
 
-    /// Compute the cost of the neural network
+    /// Compute the cost of the neural network with respect to a batch `output` and `observed`
     /// # Arguments
-    /// * `output` - the array (shape (j, 1)) of output of the network
+    /// * `output` - a batch matrices (shape (n, j)) of output of the network
     /// * `observed` - a one hotted encoded vector of observed values
     pub fn cost(&self, output: &ArrayD<f64>, observed: &ArrayD<f64>) -> f64 {
+        let epsilon = 1e-7;
+        let clipped_output = output.mapv(|x| x.clamp(epsilon, 1.0 - epsilon));
         match self {
             Self::CrossEntropy => {
-                let epsilon = 1e-7;
-                let clipped_output = output.mapv(|x| x.clamp(epsilon, 1.0 - epsilon));
-                let correct_class = observed.iter().position(|&x| x == 1.0).unwrap();
-                -f64::ln(clipped_output[[correct_class, 0]])
+                observed
+                    .axis_iter(Axis(0))
+                    .enumerate()
+                    .map(|(i, observed_row)| {
+                        let correct_class = observed_row.iter().position(|&x| x == 1.0).unwrap();
+                        -f64::ln(clipped_output[[i, correct_class]])
+                    })
+                    .sum::<f64>()
+                    / output.shape()[0] as f64
             }
             Self::BinaryCrossEntropy => {
-                let epsilon = 1e-7;
-                let clipped_output = output.mapv(|x| x.clamp(epsilon, 1.0 - epsilon));
-                -(observed * &clipped_output.mapv(f64::ln)
-                    + (1.0 - observed) * &((1.0 - clipped_output).mapv(f64::ln)))
-                    .mean()
-                    .unwrap()
+                let losses = observed * &clipped_output.mapv(f64::ln)
+                    + &(1.0 - observed) * &((1.0 - clipped_output).mapv(f64::ln));
+                -losses.mean().unwrap()
             }
             Self::Mse => {
                 let diff = output - observed;
@@ -52,38 +54,37 @@ impl CostFunction {
         }
     }
 
-    /// Compute and return the gradient of the cost function (shape (j, 1)) with respect to `output`
+    /// Return the gradient of cost function with respect to `output`
     /// Note that this simple, from scratch library, don't use auto-differentiation
     /// so for : `BinaryCrossEntropy` the calculation use a Sigmoid activation function as the last
     /// layer, and for `CrossEntropy` the calculation use a Softmax activation function as the last
     /// layer
     /// # Arguments
-    /// * `output` - the array (shape (j, 1)) of output of the network
-    /// * `observed` - a one hotted encoded vector of observed values
+    /// * `output` - a batch matrices of neural network output (shape (n, j))
+    /// * `observed` - a batch matrices of observed values (shape (n, j))
+    ///
+    /// Note that CrossEntropy and BinaryCrossEntropy assume one hot encoded vector for the
+    /// observed vector if the is multi-class.
     pub fn cost_output_gradient(
         &self,
         output: &ArrayD<f64>,
         observed: &ArrayD<f64>,
     ) -> ArrayD<f64> {
         match self {
-            // the gradient of the cross entropy with respect to the logits
-            // is given by : dc/dz = s - y in vector notation.
-            // We use this expression over the one that give dc/ds with s the softmax output
-            // because the calculation is easy and that prevent us for back propagating through the
-            // softmax function
-            // THE CROSS ENTROPY AND SOFTMAX are given considering that the sigmiod / softmax layer
-            // has been the last layer so output is already a probability distribution
             Self::CrossEntropy => {
-                // debug!("output shape : {:?}", output.shape());
-                // debug!("observed shape : {:?}", observed.shape());
+                debug!("output shape : {:?}", output.shape());
+                debug!("observed shape : {:?}", observed.shape());
                 output - observed
             }
             Self::BinaryCrossEntropy => {
-                // debug!("output shape : {:?}", output.shape());
-                // debug!("observed shape : {:?}", observed.shape());
+                debug!("output shape : {:?}", output.shape());
+                debug!("observed shape : {:?}", observed.shape());
                 output - observed
             }
-            Self::Mse => 2f64 * (output - observed) / output.len() as f64,
+            Self::Mse => {
+                let batch_size = output.shape()[0];
+                2f64 * (output - observed) / batch_size as f64
+            }
         }
     }
 }
