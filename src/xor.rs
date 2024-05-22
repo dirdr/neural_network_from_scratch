@@ -1,5 +1,5 @@
 use log::info;
-use ndarray::{arr2, Array2, ArrayD};
+use ndarray::{arr1, arr2, arr3, Array1, Array2, Array3, ArrayD};
 use nn_lib::{
     activation::Activation,
     cost::CostFunction,
@@ -18,47 +18,25 @@ pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
         .build(GradientDescent::new(0.05), CostFunction::BinaryCrossEntropy)?)
 }
 
-fn get_training_data() -> (Vec<Array2<f64>>, Vec<Array2<f64>>) {
-    let x_data = vec![
-        arr2(&[[0.0], [0.0]]),
-        arr2(&[[0.0], [1.0]]),
-        arr2(&[[1.0], [0.0]]),
-        arr2(&[[1.0], [1.0]]),
-    ];
-
-    let y_data = vec![
-        arr2(&[[0.0]]),
-        arr2(&[[1.0]]),
-        arr2(&[[1.0]]),
-        arr2(&[[0.0]]),
-    ];
-    (x_data, y_data)
+fn get_training_data() -> (Array2<f64>, Array1<f64>) {
+    let x = arr2(&[[0f64, 0f64], [0f64, 1f64], [1f64, 0f64], [1f64, 1f64]]);
+    let y = arr1(&[0f64, 1f64, 1f64, 0f64]);
+    (x, y)
 }
 
 pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
     let (x, y) = get_training_data();
-    let x = x
-        .iter()
-        .cloned()
-        .map(|a| a.into_dyn())
-        .collect::<Vec<ArrayD<_>>>();
-    let y = y
-        .iter()
-        .cloned()
-        .map(|a| a.into_dyn())
-        .collect::<Vec<ArrayD<_>>>();
 
-    neural_network.train_par(x.clone(), y, 5000, 1)?;
+    neural_network.train(x.clone().into_dyn(), y.into_dyn(), 5000, 2)?;
 
     let predictions = x
-        .iter()
-        .cloned()
-        .map(|x| neural_network.predict(&x.into_dyn()))
+        .outer_iter()
+        .map(|x| neural_network.predict(&x.to_owned().into_dyn()))
         .collect::<Result<Vec<ArrayD<_>>, LayerError>>()?;
 
-    for (i, x) in x.clone().iter().enumerate() {
-        let x1 = x[[0, 0]];
-        let x2 = x[[1, 0]];
+    for (i, x) in x.clone().outer_iter().enumerate() {
+        let x1 = x[0];
+        let x2 = x[1];
         info!(
             "Xor prediction: {} for input {} {}",
             predictions[i][[0, 0]],

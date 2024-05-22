@@ -2,19 +2,27 @@ mod app;
 mod args;
 mod xor;
 
-use args::{Arguments, Exemple};
+use args::{Arguments, Exemple, Mode};
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
     pretty_env_logger::init();
     let cli = Arguments::parse();
 
-    match cli.run {
-        Exemple::Xor => {
-            let net = xor::build_neural_net()?;
-            xor::start(net)?;
+    match &cli.mode {
+        Mode::Gui(_) => {
+            println!("Running in GUI mode");
         }
-        Exemple::Mnist => todo!(),
+        Mode::Benchmark(options) => match options.run {
+            Exemple::Xor => {
+                let net = xor::build_neural_net()?;
+                xor::start(net)?;
+            }
+            Exemple::Mnist => {
+                let net = mnist::build_neural_net()?;
+                mnist::start(net)?;
+            }
+        },
     }
     Ok(())
 }

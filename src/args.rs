@@ -1,4 +1,4 @@
-use clap::{command, Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug, Clone)]
 #[command(
@@ -8,6 +8,26 @@ use clap::{command, Parser, ValueEnum};
     version = "1.0.0"
 )]
 pub struct Arguments {
+    #[command(subcommand)]
+    pub mode: Mode,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum Mode {
+    /// Run in GUI mode
+    Gui(GuiOptions),
+
+    /// Run benchmarks
+    Benchmark(BenchmarkOptions),
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct GuiOptions {
+    // GUI-specific options can be added here
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct BenchmarkOptions {
     #[arg(short, long, default_value = "xor")]
     pub run: Exemple,
 
