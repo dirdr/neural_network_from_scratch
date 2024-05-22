@@ -76,9 +76,9 @@ impl Default for NeuralNetworkBuilder {
 /// * cost_function - TODO
 /// * optimoizer - TODO
 pub struct NeuralNetwork {
-    layers: Vec<Arc<Mutex<dyn Layer>>>,
+    layers: Vec<Box<dyn Layer>>,
     cost_function: CostFunction,
-    optimizer: Arc<Mutex<dyn Optimizer>>,
+    optimizer: Box<dyn Optimizer>,
 }
 
 impl NeuralNetwork {
@@ -89,7 +89,6 @@ impl NeuralNetwork {
     pub fn predict(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
         let mut output = input.clone();
         for layer in &self.layers {
-            let mut layer = layer.lock().unwrap();
             output = layer.feed_forward(&output)?;
         }
         Ok(output)
@@ -171,15 +170,13 @@ impl NeuralNetwork {
         };
 
         for layer in self.layers.iter().rev().skip(skip_layer) {
-            let mut layer = layer.lock().unwrap();
             grad = layer.propagate_backward(&grad)?;
 
             // Downcast to Trainable and call optimizer's step method if possible
             // if other layers (like convolutional implement trainable, need to downcast
             // explicitely)
             if let Some(trainable_layer) = layer.as_any_mut().downcast_mut::<DenseLayer>() {
-                let mut optimizer = self.optimizer.lock().unwrap();
-                optimizer.step(trainable_layer);
+                self.optimizer.step(trainable_layer);
             }
         }
         Ok(())
