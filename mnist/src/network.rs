@@ -14,7 +14,19 @@ use crate::dataset::load_dataset;
 
 pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
     let net = NeuralNetworkBuilder::new()
-        .push(DenseLayer::new(28 * 28, 32, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(
+            28 * 28,
+            512,
+            InitializerType::GlorotUniform,
+        ))
+        .push(ActivationLayer::from(Activation::ReLU))
+        .push(DenseLayer::new(512, 256, InitializerType::GlorotUniform))
+        .push(ActivationLayer::from(Activation::ReLU))
+        .push(DenseLayer::new(256, 128, InitializerType::GlorotUniform))
+        .push(ActivationLayer::from(Activation::ReLU))
+        .push(DenseLayer::new(128, 64, InitializerType::GlorotUniform))
+        .push(ActivationLayer::from(Activation::ReLU))
+        .push(DenseLayer::new(64, 32, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(32, 10, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::Softmax))
@@ -47,8 +59,8 @@ pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
             &x_validation.to_owned().into_dyn(),
             &y_validation.to_owned().into_dyn(),
         )),
-        5,
-        1,
+        20,
+        128,
     )?;
 
     for (i, (train, validation)) in train_hist
