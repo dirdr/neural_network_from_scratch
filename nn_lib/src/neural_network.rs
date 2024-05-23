@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    cost::{self, CostFunction},
+    cost::CostFunction,
     layer::{DenseLayer, Layer, LayerError},
     optimizer::Optimizer,
 };
