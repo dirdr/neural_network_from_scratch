@@ -27,14 +27,19 @@ fn get_training_data() -> (Array2<f64>, Array1<f64>) {
 pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
     let (x, y) = get_training_data();
 
-    neural_network.train(
+    let history = neural_network.train(
         x.clone().into_dyn(),
         y.insert_axis(Axis(1)).into_dyn(),
         2000,
         1,
     )?;
 
+    for (i, bench) in history.history.iter().enumerate() {
+        info!("Error for epochs {} : {}", i, bench.loss);
+    }
+
     let predictions = neural_network.predict(&x.clone().into_dyn())?;
+
     for (i, x) in x.clone().outer_iter().enumerate() {
         let x1 = x[0];
         let x2 = x[1];

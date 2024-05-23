@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
-use ndarray::ArrayD;
+use ndarray::{ArrayD, Axis};
+use ndarray_stats::QuantileExt;
 
 pub struct History {
     pub history: Vec<Benchmark>,
@@ -63,11 +64,27 @@ impl Metrics {
         None
     }
 
-    pub fn update(&mut self, predictions: &ArrayD<f64>, true_labels: &ArrayD<f64>) {
+    /// Accumulate metrics for a given batch
+    /// # Arguments
+    /// * `predictions` a batched probability distribution of shape (n, i)
+    /// * `true_labels` a batched observed values of shape (n, i)
+    pub fn accumulate(&mut self, predictions: &ArrayD<f64>, observed: &ArrayD<f64>) {
         for (metric_type, value) in self.metrics.iter_mut() {
             match metric_type {
                 MetricsType::Accuracy => {
-                    todo!()
+                    let pred_classes = predictions.map_axis(Axis(1), |prob| prob.argmax().unwrap());
+
+                    let true_classes =
+                        observed.map_axis(Axis(1), |one_hot| one_hot.argmax().unwrap());
+
+                    let correct_preds = pred_classes
+                        .iter()
+                        .zip(true_classes.iter())
+                        .filter(|&(pred, true_label)| pred == true_label)
+                        .count();
+
+                    let accuracy = correct_preds as f64 / predictions.shape()[0] as f64;
+                    *value += accuracy;
                 }
                 MetricsType::Recall => {
                     todo!()
@@ -76,6 +93,18 @@ impl Metrics {
                     todo!()
                 }
             }
+        }
+    }
+
+    pub fn mean(&mut self, metric_type: MetricsType, number_of_batch: usize) {
+        if let Some(m) = self.metrics.get_mut(&metric_type) {
+            *m /= number_of_batch as f64;
+        }
+    }
+
+    pub fn mean_all(&mut self, number_of_batch: usize) {
+        for (&_, value) in self.metrics.iter_mut() {
+            *value /= number_of_batch as f64;
         }
     }
 }

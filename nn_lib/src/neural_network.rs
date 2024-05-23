@@ -4,7 +4,7 @@ use crate::{
     metrics::{Benchmark, History, Metrics, MetricsType},
     optimizer::Optimizer,
 };
-use log::debug;
+use log::{debug, trace};
 use ndarray::{ArrayD, Axis};
 use ndarray_rand::rand::seq::SliceRandom;
 use ndarray_rand::rand::thread_rng;
@@ -30,8 +30,17 @@ impl NeuralNetworkBuilder {
         self
     }
 
-    pub fn add_metric(mut self, metric_type: MetricsType) -> Self {
+    /// Add a metric to compute for the neural network,
+    /// added metrics will be avaible inside the history record and inside the bench object that
+    /// the method evaluate return
+    pub fn watch(mut self, metric_type: MetricsType) -> Self {
         self.metrics.push(metric_type);
+        self
+    }
+
+    /// Add all the metric inside `metrics` into the neural network metrics watch list
+    pub fn watch_all(mut self, metrics: Vec<MetricsType>) -> Self {
+        self.metrics.extend(metrics.iter());
         self
     }
 
@@ -108,7 +117,6 @@ impl NeuralNetwork {
         &self,
         x_test: ArrayD<f64>,
         y_test: ArrayD<f64>,
-        metrics: &mut Option<Metrics>,
         batch_size: usize,
     ) -> Benchmark {
         let mut benchmark = Benchmark::new(&self.metrics);
@@ -123,10 +131,6 @@ impl NeuralNetwork {
 
             let batch_loss = self.cost_function.cost(&output, &batched_y);
             total_loss += batch_loss;
-
-            if let Some(ref mut m) = metrics {
-                m.update(&output, &batched_y);
-            }
 
             total_samples += batched_x.shape()[0];
         }
@@ -151,28 +155,37 @@ impl NeuralNetwork {
         let mut history = History::new();
         for e in 0..epochs {
             let mut bench = Benchmark::new(&self.metrics);
-            debug!("Inside epochs {}", e);
+            trace!("Inside epochs {}", e);
             assert!(x_train.shape()[0] == y_train.shape()[0]);
             let batches = Self::create_batches(&x_train, &y_train, batch_size);
 
             let mut total_loss = 0.0;
             let mut total_samples = 0;
+            let mut batch_count = 0;
 
             for (batched_x, batched_y) in batches.into_iter() {
+                batch_count += 1;
+
                 let output = self.feed_forward(&batched_x)?;
 
                 // add batch loss
                 let batch_loss = self.cost_function.cost(&output, &batched_y);
                 total_loss += batch_loss;
 
+                // update metrics for the batch
+                if !self.metrics.is_empty() {
+                    bench.metrics.accumulate(&output, &batched_y);
+                }
+
                 self.backpropagation(output, batched_y)?;
 
                 total_samples += batched_x.shape()[0];
             }
-
+            bench.metrics.mean_all(batch_count);
             bench.loss = total_loss / total_samples as f64;
             history.history.push(bench);
         }
+        debug!("traning finished");
         Ok(history)
     }
 

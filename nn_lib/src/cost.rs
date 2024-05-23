@@ -22,7 +22,7 @@ impl CostFunction {
         }
     }
 
-    /// Compute the cost of the neural network with respect to a batch `output` and `observed`
+    /// Compute the mean cost of the neural network with respect to a batch `output` and `observed`
     /// # Arguments
     /// * `output` - a batch matrices (shape (n, j)) of output of the network
     /// * `observed` - a one hotted encoded vector of observed values
