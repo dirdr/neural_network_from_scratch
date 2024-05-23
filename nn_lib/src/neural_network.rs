@@ -13,17 +13,26 @@ use thiserror::Error;
 
 pub struct NeuralNetworkBuilder {
     layers: Vec<Box<dyn Layer>>,
+    metrics: Vec<MetricsType>,
 }
 
 impl NeuralNetworkBuilder {
     pub fn new() -> NeuralNetworkBuilder {
-        Self { layers: vec![] }
+        Self {
+            layers: vec![],
+            metrics: vec![],
+        }
     }
 
     /// Add a layer to the sequential neural network
     /// in a sequential neural network, layers are added left to right (input -> hidden -> output)
     pub fn push(mut self, layer: impl Layer + 'static) -> Self {
         self.layers.push(Box::new(layer));
+        self
+    }
+
+    pub fn add_metric(mut self, metric_type: MetricsType) -> Self {
+        self.metrics.push(metric_type);
         self
     }
 
@@ -37,10 +46,16 @@ impl NeuralNetworkBuilder {
     ) -> Result<NeuralNetwork, NeuralNetworkError> {
         // TODO check if the cost function and last layer match
         // TODO check of the network dimension are ok
+        let metrics = if !self.metrics.is_empty() {
+            Some(self.metrics)
+        } else {
+            None
+        };
         Ok(NeuralNetwork {
             layers: self.layers,
             cost_function,
             optimizer: Box::new(optimizer),
+            metrics,
         })
     }
 }
@@ -67,6 +82,7 @@ pub struct NeuralNetwork {
     layers: Vec<Box<dyn Layer>>,
     cost_function: CostFunction,
     optimizer: Box<dyn Optimizer>,
+    metrics: Option<Vec<MetricsType>>,
 }
 
 impl NeuralNetwork {
@@ -128,7 +144,7 @@ impl NeuralNetwork {
                 self.backpropagation(output, batched_y)?;
             }
         }
-        Ok(())
+        Ok(history)
     }
 
     fn create_batches(
@@ -206,9 +222,9 @@ pub struct Benchmark {
 }
 
 impl Benchmark {
-    pub fn new() -> Self {
+    pub fn new(metrics: Vec<MetricsType>) -> Self {
         Self {
-            metrics: Metrics::new(),
+            metrics: Metrics::from(&metrics),
             error: 0f64,
         }
     }
@@ -226,15 +242,12 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    pub fn new() -> Self {
-        Self {
-            metrics: HashMap::new(),
+    fn from(metrics: &Vec<MetricsType>) -> Self {
+        let mut map = HashMap::new();
+        for el in metrics {
+            map.insert(*el, 0f64);
         }
-    }
-
-    pub fn add_metric(mut self, metric_type: MetricsType) -> Self {
-        self.metrics.insert(metric_type, 0f64);
-        self
+        Self { metrics: map }
     }
 
     pub fn get_all(&self) -> &HashMap<MetricsType, f64> {
@@ -246,12 +259,6 @@ impl Metrics {
             return Some(*metric);
         }
         None
-    }
-}
-
-impl Default for Metrics {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

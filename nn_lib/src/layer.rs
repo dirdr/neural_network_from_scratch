@@ -200,7 +200,7 @@ impl ActivationLayer {
 impl Layer for ActivationLayer {
     /// Return a matrice (shape (n, i)) with the activation function applied to a batch
     /// while sotring the input for later use in backpropagation process
-
+    ///
     /// # Arguments
     /// * `input` - shape (n, i)
     fn feed_forward(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {

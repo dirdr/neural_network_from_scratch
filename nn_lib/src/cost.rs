@@ -1,4 +1,3 @@
-use log::debug;
 use ndarray::{ArrayD, Axis};
 
 #[derive(Copy, Clone)]
@@ -55,9 +54,9 @@ impl CostFunction {
     }
 
     /// Return the gradient of cost function with respect to `output`
-    /// Note that this simple, from scratch library, don't use auto-differentiation
-    /// so for : `BinaryCrossEntropy` the calculation use a Sigmoid activation function as the last
-    /// layer, and for `CrossEntropy` the calculation use a Softmax activation function as the last
+    /// Note that this simple, from 'almost' scratch library don't use auto-differentiation
+    /// thus `BinaryCrossEntropy` calculation assume a Sigmoid activation as the layer.
+    /// `CrossEntropy` calculation assume a Softmax activation as the last
     /// layer
     /// # Arguments
     /// * `output` - a batch matrices of neural network output (shape (n, j))
