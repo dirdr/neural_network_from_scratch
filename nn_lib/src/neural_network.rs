@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    cost::CostFunction,
+    cost::{self, CostFunction},
     layer::{DenseLayer, Layer, LayerError},
     optimizer::Optimizer,
 };
@@ -46,16 +46,11 @@ impl NeuralNetworkBuilder {
     ) -> Result<NeuralNetwork, NeuralNetworkError> {
         // TODO check if the cost function and last layer match
         // TODO check of the network dimension are ok
-        let metrics = if !self.metrics.is_empty() {
-            Some(self.metrics)
-        } else {
-            None
-        };
         Ok(NeuralNetwork {
             layers: self.layers,
             cost_function,
             optimizer: Box::new(optimizer),
-            metrics,
+            metrics: self.metrics,
         })
     }
 }
@@ -82,7 +77,7 @@ pub struct NeuralNetwork {
     layers: Vec<Box<dyn Layer>>,
     cost_function: CostFunction,
     optimizer: Box<dyn Optimizer>,
-    metrics: Option<Vec<MetricsType>>,
+    metrics: Vec<MetricsType>,
 }
 
 impl NeuralNetwork {
@@ -114,10 +109,31 @@ impl NeuralNetwork {
         &self,
         x_test: ArrayD<f64>,
         y_test: ArrayD<f64>,
-        metrics: Option<Metrics>,
+        metrics: &mut Option<Metrics>,
         batch_size: usize,
     ) -> Benchmark {
-        todo!()
+        let mut benchmark = Benchmark::new(&self.metrics);
+        assert!(x_test.shape()[0] == y_test.shape()[0]);
+        let batches = Self::create_batches(&x_test, &y_test, batch_size);
+
+        let mut total_loss = 0.0;
+        let mut total_samples = 0;
+
+        for (batched_x, batched_y) in batches.into_iter() {
+            let output = self.predict(&batched_x).unwrap();
+
+            let batch_loss = self.cost_function.cost(&output, &batched_y);
+            total_loss += batch_loss;
+
+            if let Some(ref mut m) = metrics {
+                m.update(&output, &batched_y);
+            }
+
+            total_samples += batched_x.shape()[0];
+        }
+
+        benchmark.loss = total_loss / total_samples as f64;
+        benchmark
     }
 
     /// Train the neural network with Gradient descent Algorithm
@@ -133,16 +149,30 @@ impl NeuralNetwork {
         epochs: usize,
         batch_size: usize,
     ) -> Result<History, LayerError> {
-        let history = History::new();
+        let mut history = History::new();
         for e in 0..epochs {
+            let mut bench = Benchmark::new(&self.metrics);
             debug!("Inside epochs {}", e);
             assert!(x_train.shape()[0] == y_train.shape()[0]);
             let batches = Self::create_batches(&x_train, &y_train, batch_size);
 
+            let mut total_loss = 0.0;
+            let mut total_samples = 0;
+
             for (batched_x, batched_y) in batches.into_iter() {
                 let output = self.feed_forward(&batched_x)?;
+
+                // add batch loss
+                let batch_loss = self.cost_function.cost(&output, &batched_y);
+                total_loss += batch_loss;
+
                 self.backpropagation(output, batched_y)?;
+
+                total_samples += batched_x.shape()[0];
             }
+
+            bench.loss = total_loss / total_samples as f64;
+            history.history.push(bench);
         }
         Ok(history)
     }
@@ -216,16 +246,22 @@ impl History {
     }
 }
 
+impl Default for History {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct Benchmark {
     metrics: Metrics,
-    error: f64,
+    loss: f64,
 }
 
 impl Benchmark {
-    pub fn new(metrics: Vec<MetricsType>) -> Self {
+    pub fn new(metrics: &Vec<MetricsType>) -> Self {
         Self {
-            metrics: Metrics::from(&metrics),
-            error: 0f64,
+            metrics: Metrics::from(metrics),
+            loss: 0f64,
         }
     }
 }
@@ -259,6 +295,22 @@ impl Metrics {
             return Some(*metric);
         }
         None
+    }
+
+    pub fn update(&mut self, predictions: &ArrayD<f64>, true_labels: &ArrayD<f64>) {
+        for (metric_type, value) in self.metrics.iter_mut() {
+            match metric_type {
+                MetricsType::Accuracy => {
+                    todo!()
+                }
+                MetricsType::Recall => {
+                    todo!()
+                }
+                MetricsType::Precision => {
+                    todo!()
+                }
+            }
+        }
     }
 }
 
