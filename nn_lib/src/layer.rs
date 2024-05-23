@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use ndarray::{ArrayD, Axis, ShapeError};
+use ndarray::{ArrayD, ArrayViewD, Axis, ShapeError};
 use thiserror::Error;
 
 use crate::{activation::Activation, initialization::InitializerType};
@@ -14,7 +14,7 @@ use crate::{activation::Activation, initialization::InitializerType};
 /// data point at once).
 /// The convention chosen in the layer implementations is (n, features) where n is the number of
 /// sample in the batch
-pub trait Layer: Send + Sync + Any {
+pub trait Layer {
     fn feed_forward_save(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError>;
 
     fn feed_forward(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError>;
@@ -215,9 +215,7 @@ impl Layer for ActivationLayer {
         output_gradient: &ArrayD<f64>,
     ) -> Result<ArrayD<f64>, LayerError> {
         let input_gradient = match self.input.as_ref() {
-            Some(input) => {
-                Ok(output_gradient * self.activation.apply_derivative(input))
-            }
+            Some(input) => Ok(output_gradient * self.activation.apply_derivative(input)),
             None => Err(LayerError::IllegalInputAccess),
         };
         input_gradient

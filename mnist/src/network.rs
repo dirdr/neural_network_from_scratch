@@ -1,5 +1,5 @@
 use log::{debug, info};
-use ndarray::{Array2, ArrayD};
+use ndarray::{s, Array2, ArrayD};
 use nn_lib::{
     activation::Activation,
     cost::CostFunction,
@@ -25,16 +25,52 @@ pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
 pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
     let dataset = load_dataset()?;
     let (x_train, y_train) = prepare_data(dataset.training)?;
+
+    // split the training dataset into training / validation
     let (x_test, y_test) = prepare_data(dataset.test)?;
 
-    let (train_hist, _validation_hist) =
-        neural_network.train((&x_train.into_dyn(), &y_train.into_dyn()), None, 5, 1)?;
+    let (x_validation, y_validation) = (
+        x_train.slice(s![48000..60000, ..]),
+        y_train.slice(s![48000..60000, ..]),
+    );
+    let (x_train, y_train) = (
+        x_train.slice(s![0..48000, ..]),
+        y_train.slice(s![0..48000, ..]),
+    );
 
-    for (i, bench) in train_hist.history.iter().enumerate() {
-        info!("train data loss for epochs {} : {}", i, bench.loss);
-        if let Some(accuracy) = bench.metrics.get_metric(MetricsType::Accuracy) {
+    let (train_hist, validation_hist) = neural_network.train(
+        (
+            &x_train.to_owned().into_dyn(),
+            &y_train.to_owned().into_dyn(),
+        ),
+        Some((
+            &x_validation.to_owned().into_dyn(),
+            &y_validation.to_owned().into_dyn(),
+        )),
+        5,
+        1,
+    )?;
+
+    for (i, (train, validation)) in train_hist
+        .history
+        .iter()
+        .zip(validation_hist.unwrap().history.iter())
+        .enumerate()
+    {
+        info!("train loss for epochs {} : {}", i, train.loss);
+        info!("validation loss for epochs {} : {}", i, validation.loss);
+        if let Some(accuracy) = train.metrics.get_metric(MetricsType::Accuracy) {
             info!(
-                "network accuracy for epoch {} : {:.2}%",
+                "network train accuracy for epoch {} : {:.2}%",
+                i,
+                accuracy * 100f64
+            );
+        } else {
+            debug!("accuracy has not been set")
+        }
+        if let Some(accuracy) = validation.metrics.get_metric(MetricsType::Accuracy) {
+            info!(
+                "network validation accuracy for epoch {} : {:.2}%",
                 i,
                 accuracy * 100f64
             );
