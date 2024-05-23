@@ -27,14 +27,14 @@ fn get_training_data() -> (Array2<f64>, Array1<f64>) {
 pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
     let (x, y) = get_training_data();
 
-    let history = neural_network.train(
-        x.clone().into_dyn(),
-        y.insert_axis(Axis(1)).into_dyn(),
+    let (train_hist, validation_hist) = neural_network.train(
+        (&x.clone().into_dyn(), &y.insert_axis(Axis(1)).into_dyn()),
+        None,
         2000,
         1,
     )?;
 
-    for (i, bench) in history.history.iter().enumerate() {
+    for (i, bench) in train_hist.history.iter().enumerate() {
         info!("Error for epochs {} : {}", i, bench.loss);
     }
 

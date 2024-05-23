@@ -27,9 +27,10 @@ pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
     let (x_train, y_train) = prepare_data(dataset.training)?;
     let (x_test, y_test) = prepare_data(dataset.test)?;
 
-    let history = neural_network.train(x_train.into_dyn(), y_train.into_dyn(), 5, 1)?;
+    let (train_hist, _validation_hist) =
+        neural_network.train((&x_train.into_dyn(), &y_train.into_dyn()), None, 5, 1)?;
 
-    for (i, bench) in history.history.iter().enumerate() {
+    for (i, bench) in train_hist.history.iter().enumerate() {
         info!("train data loss for epochs {} : {}", i, bench.loss);
         if let Some(accuracy) = bench.metrics.get_metric(MetricsType::Accuracy) {
             info!(
@@ -43,7 +44,7 @@ pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
     }
 
     // evaluate model on test data
-    let bench = neural_network.evaluate(x_test.into_dyn(), y_test.into_dyn(), 10);
+    let bench = neural_network.evaluate(&x_test.into_dyn(), &y_test.into_dyn(), 10);
 
     info!("loss for test data : {}", bench.loss);
     if let Some(accuracy) = bench.metrics.get_metric(MetricsType::Accuracy) {

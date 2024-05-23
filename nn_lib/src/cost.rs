@@ -12,7 +12,7 @@ impl CostFunction {
     /// thus, for function like BinaryCrossEntropy and CrossEntropy that need clamped output,
     /// we assume Sigmoid and Softmax respectively as the output activation layer.
     /// the gradient calculation is done with those activation function in mind.
-    /// Those function are called 'Output dependant' to constrast with function like Mse, of which
+    /// Those function are called 'Output dependant' to contrast with function like Mse, of which
     /// the derivative can be easily calculated with respect to any output layer, because it
     /// doesn't need clamped output.
     pub fn is_output_dependant(&self) -> bool {

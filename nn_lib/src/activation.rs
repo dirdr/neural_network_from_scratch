@@ -16,14 +16,14 @@ pub enum Activation {
 }
 
 impl Activation {
-    /// Apply the activation function to each element of a multi-dimensional array
-    /// dimensions doesn't matter as the tranformation is applied element wise
+    /// Apply the activation function to each element of a multidimensional array
+    /// dimensions doesn't matter as the transformation is applied element wise
     /// except for the softmax function, the softmax will be computed onto each batch independently
-    /// if the array if of shape (n, i) with **n** the number of batch and **i** the size of the
+    /// if the array is of shape (n, i) with **n** the number of batch and **i** the size of the
     /// vector, the function will return a matrices of same shape, with softmax function computed
-    /// for every element in the outer-most dimension.
+    /// for every element in the outermost dimension.
     /// # Arguments
-    /// * `input` - a multi-dimensional array;
+    /// * `input` - a multidimensional array;
     pub fn apply(&self, input: &ArrayD<f64>) -> ArrayD<f64> {
         let result = match self {
             Self::ReLU => input.mapv(|e| 0f64.max(e)),
@@ -47,10 +47,10 @@ impl Activation {
         result
     }
 
-    /// Apply the activation function derivative to each element of a multi-dimensional array
-    /// not that the dimensions doesn't matter as the tranformation is applied element wise.
+    /// Apply the activation function derivative to each element of a multidimensional array
+    /// not that the dimensions doesn't matter as the transformation is applied element wise.
     /// # Arguments
-    /// * `input` - a multi-dimensional array;
+    /// * `input` - a multidimensional array;
     pub fn apply_derivative(&self, input: &ArrayD<f64>) -> ArrayD<f64> {
         let result = match self {
             Self::ReLU => input.mapv(|e| if e > 0f64 { 1f64 } else { 0f64 }),

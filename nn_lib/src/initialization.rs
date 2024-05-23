@@ -11,7 +11,7 @@ pub enum InitializerType {
 }
 
 impl InitializerType {
-    /// Return a new multi-dimensional array initialized according to the `InitializerType`
+    /// Return a new multidimensional array initialized according to the `InitializerType`
     ///
     /// # Arguments
     /// * `fan_in` - The number of input in the layer

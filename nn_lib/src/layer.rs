@@ -5,25 +5,16 @@ use thiserror::Error;
 
 use crate::{activation::Activation, initialization::InitializerType};
 
-#[derive(Error, Debug)]
-pub enum LayerError {
-    #[error("Access to stored input of the layer before stored happened")]
-    IllegalInputAccess,
-
-    #[error("Error reshaping array: {0}")]
-    ReshapeError(#[from] ShapeError),
-}
-
 /// The `Layer` trait need to be implemented by any nn layer
 //
 /// a layer is defined as input nodes x and output nodes y, and have two main functions,
 /// `feed_forward()` and `propagate_backward()`
 ///
-/// Layer implementations in this library support batch processing, (i.e processing more than one
+/// Layer implementations in this library support batch processing, (i.e. processing more than one
 /// data point at once).
-/// The convention choosen in the layer implementations is (n, features) where n is the number of
+/// The convention chosen in the layer implementations is (n, features) where n is the number of
 /// sample in the batch
-pub trait Layer: Send + Sync {
+pub trait Layer: Send + Sync + Any {
     fn feed_forward_save(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError>;
 
     fn feed_forward(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError>;
@@ -198,7 +189,7 @@ impl ActivationLayer {
 }
 
 impl Layer for ActivationLayer {
-    /// Return a matrice (shape (n, i)) with the activation function applied to a batch
+    /// Return a matrices (shape (n, i)) with the activation function applied to a batch
     ///
     /// # Arguments
     /// * `input` - shape (n, i)
@@ -207,8 +198,8 @@ impl Layer for ActivationLayer {
         self.feed_forward(input)
     }
 
-    /// Return a matrice (shape (n, i)) with the activation function applied to a batch
-    /// while sotring the input for later use in backpropagation process
+    /// Return a matrices (shape (n, i)) with the activation function applied to a batch
+    /// while storing the input for later use in backpropagation process
     ///
     /// # Arguments
     /// * `input` - shape (n, i)
@@ -225,8 +216,6 @@ impl Layer for ActivationLayer {
     ) -> Result<ArrayD<f64>, LayerError> {
         let input_gradient = match self.input.as_ref() {
             Some(input) => {
-                // debug!(" input shape {:?}", input.shape());
-                // debug!(" ourput gradient shape {:?}", output_gradient.shape());
                 Ok(output_gradient * self.activation.apply_derivative(input))
             }
             None => Err(LayerError::IllegalInputAccess),
@@ -365,3 +354,15 @@ impl Layer for ActivationLayer {
 //         input_gradient
 //     }
 // }
+
+#[derive(Error, Debug)]
+pub enum LayerError {
+    #[error("Access to stored input of the layer before stored happened")]
+    IllegalInputAccess,
+
+    #[error("Error reshaping array: {0}")]
+    ReshapeError(#[from] ShapeError),
+
+    #[error("Dimension don't match")]
+    DimensionMismatch,
+}
