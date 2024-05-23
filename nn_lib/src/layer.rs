@@ -24,7 +24,9 @@ pub enum LayerError {
 /// The convention choosen in the layer implementations is (n, features) where n is the number of
 /// sample in the batch
 pub trait Layer: Send + Sync {
-    fn feed_forward(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError>;
+    fn feed_forward_save(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError>;
+
+    fn feed_forward(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError>;
 
     fn propagate_backward(
         &mut self,
@@ -72,21 +74,13 @@ impl DenseLayer {
 }
 
 impl Layer for DenseLayer {
-    /// Return the output matrices of this `DenseLayer` (shape (n, j)), while storing the input matrices
-    /// (shape (n, i))
+    /// Return the output matrices of this `DenseLayer` (shape (n, j))
     ///
-    /// where **n** is the number of samples, **j** is the layer output size and **i** is the layer
-    /// input size.
+    /// where **n** is the number of samples, **j** is the layer output size.
     ///
     /// # Arguments
     /// * `input` - shape (n, i)
-    fn feed_forward(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
-        // TODO faire une fonction feed_forward qui prend juste une référence et une fonction
-        // feed_forward_mut qui prend une référence mutable pour sauvegarder le dernier input dans
-        // le réseau
-        // TODO trouver une solution inplace pour éviter de cloner
-        self.last_batch_input = Some(input.clone());
-
+    fn feed_forward(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
         let batch_size = input.shape()[0];
         let input_2d = input.view().into_shape((batch_size, self.input_size))?;
         let weight_2d = self
@@ -95,6 +89,20 @@ impl Layer for DenseLayer {
             .into_shape((self.input_size, self.output_size))?;
 
         Ok((input_2d.dot(&weight_2d) + &self.bias).into_dyn())
+    }
+
+    /// Return the output matrices of this `DenseLayer` (shape (n, j)), while storing the input matrices
+    /// (shape (n, i))
+    ///
+    /// where **n** is the number of samples, **j** is the layer output size and **i** is the layer
+    /// input size.
+    ///
+    /// # Arguments
+    /// * `input` - shape (n, i)
+    fn feed_forward_save(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
+        // TODO find a without clone method, like in place mutation
+        self.last_batch_input = Some(input.clone());
+        self.feed_forward(input)
     }
 
     /// Return the input gradient vector (shape (n, i)), by processing the output gradient vector
@@ -191,12 +199,21 @@ impl ActivationLayer {
 
 impl Layer for ActivationLayer {
     /// Return a matrice (shape (n, i)) with the activation function applied to a batch
+    /// while sotring the input for later use in backpropagation process
+
+    /// # Arguments
+    /// * `input` - shape (n, i)
+    fn feed_forward(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
+        Ok(self.activation.apply(input))
+    }
+
+    /// Return a matrice (shape (n, i)) with the activation function applied to a batch
     ///
     /// # Arguments
     /// * `input` - shape (n, i)
-    fn feed_forward(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
+    fn feed_forward_save(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
         self.input = Some(input.clone());
-        Ok(self.activation.apply(input))
+        self.feed_forward(input)
     }
 
     /// Return the input gradient (shape (n, i)) of this `ActivationLayer` by processing the output gradient.

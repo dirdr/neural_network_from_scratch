@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     cost::CostFunction,
     layer::{DenseLayer, Layer, LayerError},
@@ -13,18 +15,6 @@ pub struct NeuralNetworkBuilder {
     layers: Vec<Box<dyn Layer>>,
 }
 
-#[derive(Error, Debug)]
-pub enum NeuralNetworkError {
-    #[error("Missing mandatory fields to build the network")]
-    MissingMandatoryFields,
-
-    #[error(
-        "Invalid output activation layer,
-        see CostFunction::output_dependant for detailed explanation. provided : {0}"
-    )]
-    WrongOutputActivationLayer(String),
-}
-
 impl NeuralNetworkBuilder {
     pub fn new() -> NeuralNetworkBuilder {
         Self { layers: vec![] }
@@ -32,7 +22,7 @@ impl NeuralNetworkBuilder {
 
     /// Add a layer to the sequential neural network
     /// in a sequential neural network, layers are added left to right (input -> hidden -> output)
-    pub fn push(mut self, layer: impl Layer + 'static) -> NeuralNetworkBuilder {
+    pub fn push(mut self, layer: impl Layer + 'static) -> Self {
         self.layers.push(Box::new(layer));
         self
     }
@@ -40,7 +30,7 @@ impl NeuralNetworkBuilder {
     /// Build the neural network
     /// A NeuralNetworkError is returned if the network is wrongly defined
     /// see `NeuralNetworkError` for informations of what can fail.
-    pub fn build(
+    pub fn compile(
         self,
         optimizer: impl Optimizer + 'static,
         cost_function: CostFunction,
@@ -80,19 +70,38 @@ pub struct NeuralNetwork {
 }
 
 impl NeuralNetwork {
-    /// predict from the neural network
+    /// predict a value from the neural network
     /// the shape of the prediction is (n, dim o) where **dim o** is the dimension of the network
     /// last layer and **n** is the number of point in the batch.
     ///
     /// # Arguments
     /// * `input` : batched input, of size (n, dim i) where **dim i** is the dimension of the
     /// network first layer and **n** is the number of point in the batch.
-    pub fn predict(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
+    pub fn predict(&self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
         let mut output = input.clone();
-        for layer in &mut self.layers {
+        for layer in &self.layers {
             output = layer.feed_forward(&output)?;
         }
         Ok(output)
+    }
+
+    /// Evaluate the **trained** neural network on a test input and observed values.
+    /// returning a `Benchmark` containing the error on the test set, along with the metrics
+    /// provided
+    ///
+    /// # Arguments
+    /// * `x_test` test data set, the outer dimension must contains the data
+    /// * `y_test` test observed values, the outer dimension must contains the data
+    /// * `metrics` optional metrics struct
+    /// * `batch_size` the batch size, ie: number of data point treaded simultaneously
+    pub fn evaluate(
+        &self,
+        x_test: ArrayD<f64>,
+        y_test: ArrayD<f64>,
+        metrics: Option<Metrics>,
+        batch_size: usize,
+    ) -> Benchmark {
+        todo!()
     }
 
     /// Train the neural network with Gradient descent Algorithm
@@ -107,38 +116,45 @@ impl NeuralNetwork {
         y_train: ArrayD<f64>,
         epochs: usize,
         batch_size: usize,
-    ) -> Result<(), LayerError> {
+    ) -> Result<History, LayerError> {
         for e in 0..epochs {
             debug!("Inside epochs {}", e);
             assert!(x_train.shape()[0] == y_train.shape()[0]);
+            let batches = Self::create_batches(&x_train, &y_train, batch_size);
 
-            let mut indices = (0..x_train.shape()[0]).collect::<Vec<_>>();
-            let mut rng = thread_rng();
-            indices.shuffle(&mut rng);
-
-            indices.chunks(batch_size).try_for_each(|batch_i| {
-                let batched_x = x_train.select(Axis(0), batch_i);
-                // TODO vérifier si ca ca marche bien, et soit mieux spécifier dans la doc le
-                // format de données attendu, soit faire des check avant de reshape volontairement
-                let batched_y = y_train.select(Axis(0), batch_i);
-                self.process_batch(batched_x, batched_y)?;
-                Ok::<(), LayerError>(())
-            })?;
+            for (batched_x, batched_y) in batches.into_iter() {
+                let output = self.feed_forward(&batched_x)?;
+                self.backpropagation(output, batched_y)?;
+            }
         }
         Ok(())
     }
 
-    pub fn process_batch(
-        &mut self,
-        batched_x: ArrayD<f64>,
-        batched_y: ArrayD<f64>,
-    ) -> Result<(), LayerError> {
-        // debug!("batched x shape : {:?}", batched_x.shape());
-        // debug!("batched y shape : {:?}", batched_y.shape());
-        let output = self.predict(&batched_x)?;
-        //let cost = self.cost_function.cost(&output, &batched_y);
-        self.backpropagation(output, batched_y)?;
-        Ok(())
+    fn create_batches(
+        x_train: &ArrayD<f64>,
+        y_train: &ArrayD<f64>,
+        batch_size: usize,
+    ) -> Vec<(ArrayD<f64>, ArrayD<f64>)> {
+        let mut indices = (0..x_train.shape()[0]).collect::<Vec<_>>();
+        let mut rng = thread_rng();
+        indices.shuffle(&mut rng);
+        indices
+            .chunks(batch_size)
+            .map(|batch_indices| {
+                (
+                    x_train.select(Axis(0), batch_indices),
+                    y_train.select(Axis(0), batch_indices),
+                )
+            })
+            .collect::<Vec<_>>()
+    }
+
+    pub fn feed_forward(&mut self, input: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
+        let mut output = input.clone();
+        for layer in &mut self.layers {
+            output = layer.feed_forward_save(&output)?;
+        }
+        Ok(output)
     }
 
     fn backpropagation(
@@ -149,6 +165,7 @@ impl NeuralNetwork {
         let mut grad = self
             .cost_function
             .cost_output_gradient(&net_output, &observed);
+
         // if the cost function is dependant of the last layer, the gradient calculation
         // have been done with respect to the net logits directly, thus skip the last layer
         // in the gradients backpropagation
@@ -170,4 +187,69 @@ impl NeuralNetwork {
         }
         Ok(())
     }
+}
+
+pub struct History {
+    history: Vec<Benchmark>,
+}
+
+pub struct Benchmark {
+    metrics: Metrics,
+    error: f64,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub enum MetricsType {
+    Accuracy,
+    Recall,
+    Precision,
+}
+
+pub struct Metrics {
+    metrics: HashMap<MetricsType, f64>,
+}
+
+impl Metrics {
+    pub fn new() -> Self {
+        Self {
+            metrics: HashMap::new(),
+        }
+    }
+
+    pub fn add_metric(mut self, metric_type: MetricsType) -> Self {
+        self.metrics.insert(metric_type, 0f64);
+        self
+    }
+
+    pub fn get_all(&self) -> Option<HashMap<MetricsType, f64>> {
+        if self.metrics.is_empty() {
+            return None;
+        }
+        Some(self.metrics.clone())
+    }
+
+    pub fn get_metric(&self, metric: MetricsType) -> Option<f64> {
+        if let Some(metric) = self.metrics.get(&metric) {
+            return Some(*metric);
+        }
+        None
+    }
+}
+
+impl Default for Metrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum NeuralNetworkError {
+    #[error("Missing mandatory fields to build the network")]
+    MissingMandatoryFields,
+
+    #[error(
+        "Invalid output activation layer,
+        see CostFunction::output_dependant for detailed explanation. provided : {0}"
+    )]
+    WrongOutputActivationLayer(String),
 }

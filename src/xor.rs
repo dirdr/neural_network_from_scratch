@@ -10,12 +10,12 @@ use nn_lib::{
 };
 
 pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
-    Ok(NeuralNetworkBuilder::new()
+    let net = NeuralNetworkBuilder::new()
         .push(DenseLayer::new(2, 8, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(8, 1, InitializerType::GlorotUniform))
-        .push(ActivationLayer::from(Activation::Sigmoid))
-        .build(GradientDescent::new(0.02), CostFunction::BinaryCrossEntropy)?)
+        .push(ActivationLayer::from(Activation::Sigmoid));
+    Ok(net.compile(GradientDescent::new(0.02), CostFunction::BinaryCrossEntropy)?)
 }
 
 fn get_training_data() -> (Array2<f64>, Array1<f64>) {
