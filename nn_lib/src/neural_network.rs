@@ -1,6 +1,7 @@
 use crate::{
+    activation::Activation,
     cost::CostFunction,
-    layer::{DenseLayer, Layer, LayerError},
+    layer::{ActivationLayer, DenseLayer, Layer, LayerError},
     metrics::{Benchmark, History, MetricsType},
     optimizer::Optimizer,
 };
@@ -53,7 +54,24 @@ impl NeuralNetworkBuilder {
         cost_function: CostFunction,
     ) -> Result<NeuralNetwork, NeuralNetworkError> {
         // TODO check if the cost function and last layer match
-        // TODO check of the network dimension are ok
+        if cost_function.is_output_dependant() {
+            if let Some(layer) = self.layers.last() {
+                if let Some(activation_layer) = layer.as_any().downcast_ref::<ActivationLayer>() {
+                    let ok = match cost_function {
+                        CostFunction::Mse => true,
+                        CostFunction::CrossEntropy => {
+                            activation_layer.activation == Activation::Softmax
+                        }
+                        CostFunction::BinaryCrossEntropy => {
+                            activation_layer.activation == Activation::Sigmoid
+                        }
+                    };
+                    if !ok {
+                        return Err(NeuralNetworkError::WrongOutputActivationLayer);
+                    }
+                }
+            }
+        }
         Ok(NeuralNetwork {
             layers: self.layers,
             cost_function,
@@ -228,7 +246,7 @@ impl NeuralNetwork {
         // if the cost function is dependant of the last layer, the gradient calculation
         // have been done with respect to the net logits directly, thus skip the last layer
         // in the gradients backpropagation
-        let skip_layer = if self.cost_function.output_dependant() {
+        let skip_layer = if self.cost_function.is_output_dependant() {
             1
         } else {
             0
@@ -255,7 +273,7 @@ pub enum NeuralNetworkError {
 
     #[error(
         "Invalid output activation layer,
-        see CostFunction::output_dependant for detailed explanation. provided : {0}"
+        see CostFunction::output_dependant for detailed explanation"
     )]
-    WrongOutputActivationLayer(String),
+    WrongOutputActivationLayer,
 }

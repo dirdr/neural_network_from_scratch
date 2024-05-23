@@ -14,9 +14,7 @@ use crate::dataset::load_dataset;
 
 pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
     let net = NeuralNetworkBuilder::new()
-        .push(DenseLayer::new(28 * 28, 64, InitializerType::GlorotUniform))
-        .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(64, 32, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(28 * 28, 32, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(32, 10, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::Softmax))
@@ -29,7 +27,7 @@ pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
     let (x_train, y_train) = prepare_data(dataset.training)?;
     let (x_test, y_test) = prepare_data(dataset.test)?;
 
-    let history = neural_network.train(x_train.into_dyn(), y_train.into_dyn(), 10, 10)?;
+    let history = neural_network.train(x_train.into_dyn(), y_train.into_dyn(), 5, 1)?;
 
     for (i, bench) in history.history.iter().enumerate() {
         info!("train data loss for epochs {} : {}", i, bench.loss);
@@ -53,6 +51,7 @@ pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
     } else {
         debug!("accuracy has not been set")
     }
+
     Ok(())
 }
 

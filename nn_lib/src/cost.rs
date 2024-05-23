@@ -15,7 +15,7 @@ impl CostFunction {
     /// Those function are called 'Output dependant' to constrast with function like Mse, of which
     /// the derivative can be easily calculated with respect to any output layer, because it
     /// doesn't need clamped output.
-    pub fn output_dependant(&self) -> bool {
+    pub fn is_output_dependant(&self) -> bool {
         match self {
             Self::BinaryCrossEntropy | Self::CrossEntropy => true,
             Self::Mse => false,
