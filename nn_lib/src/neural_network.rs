@@ -117,6 +117,7 @@ impl NeuralNetwork {
         epochs: usize,
         batch_size: usize,
     ) -> Result<History, LayerError> {
+        let history = History::new();
         for e in 0..epochs {
             debug!("Inside epochs {}", e);
             assert!(x_train.shape()[0] == y_train.shape()[0]);
@@ -193,9 +194,24 @@ pub struct History {
     history: Vec<Benchmark>,
 }
 
+impl History {
+    pub fn new() -> Self {
+        Self { history: vec![] }
+    }
+}
+
 pub struct Benchmark {
     metrics: Metrics,
     error: f64,
+}
+
+impl Benchmark {
+    pub fn new() -> Self {
+        Self {
+            metrics: Metrics::new(),
+            error: 0f64,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -221,11 +237,8 @@ impl Metrics {
         self
     }
 
-    pub fn get_all(&self) -> Option<HashMap<MetricsType, f64>> {
-        if self.metrics.is_empty() {
-            return None;
-        }
-        Some(self.metrics.clone())
+    pub fn get_all(&self) -> &HashMap<MetricsType, f64> {
+        &self.metrics
     }
 
     pub fn get_metric(&self, metric: MetricsType) -> Option<f64> {
