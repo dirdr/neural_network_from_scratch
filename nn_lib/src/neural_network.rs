@@ -1,7 +1,7 @@
 use crate::{
     cost::CostFunction,
     layer::{DenseLayer, Layer, LayerError},
-    metrics::{Benchmark, History, Metrics, MetricsType},
+    metrics::{Benchmark, History, MetricsType},
     optimizer::Optimizer,
 };
 use log::{debug, trace};

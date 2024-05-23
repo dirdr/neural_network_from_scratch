@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::collections::HashMap;
 
 use ndarray::{ArrayD, Axis};
 use ndarray_stats::QuantileExt;

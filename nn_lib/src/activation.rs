@@ -1,5 +1,5 @@
 use log::error;
-use ndarray::{Array1, Array2, ArrayD, ArrayView1, Axis};
+use ndarray::{Array1, ArrayD, ArrayView1, Axis};
 
 fn check_nan(array: &ArrayD<f64>, operation: &str) {
     if array.iter().any(|&x| x.is_nan()) {

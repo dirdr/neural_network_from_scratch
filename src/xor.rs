@@ -1,10 +1,10 @@
-use log::{debug, info};
-use ndarray::{arr1, arr2, arr3, Array1, Array2, Array3, ArrayD, Axis};
+use log::info;
+use ndarray::{arr1, arr2, Array1, Array2, Axis};
 use nn_lib::{
     activation::Activation,
     cost::CostFunction,
     initialization::InitializerType,
-    layer::{ActivationLayer, DenseLayer, LayerError},
+    layer::{ActivationLayer, DenseLayer},
     neural_network::{NeuralNetwork, NeuralNetworkBuilder},
     optimizer::GradientDescent,
 };

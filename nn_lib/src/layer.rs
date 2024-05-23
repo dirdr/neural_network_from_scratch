@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use ndarray::{linalg::Dot, ArrayD, Axis, ShapeError};
+use ndarray::{ArrayD, Axis, ShapeError};
 use thiserror::Error;
 
 use crate::{activation::Activation, initialization::InitializerType};

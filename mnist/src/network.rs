@@ -53,19 +53,7 @@ pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
     } else {
         debug!("accuracy has not been set")
     }
-
-    //     let mut rng = thread_rng();
-    //     let range = 0..10000;
-    //     let uniform = Uniform::from(range);
-    //     let count = 10;
-    //     (0..count)
-    //         .map(|_| uniform.sample(&mut rng))
-    //         .for_each(|index| {
-    //             evaluator.evaluate_indexed_data_point_prob(index).unwrap();
-    //         });
-    //
-    //     Ok(())
-    todo!()
+    Ok(())
 }
 
 fn prepare_data(data: (ArrayD<u8>, ArrayD<u8>)) -> anyhow::Result<(Array2<f64>, Array2<f64>)> {
