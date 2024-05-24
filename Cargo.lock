@@ -2219,7 +2219,6 @@ name = "mnist"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "blas-src",
  "byteorder",
  "clap",
  "flate2",

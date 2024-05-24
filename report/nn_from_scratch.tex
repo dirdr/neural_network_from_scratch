@@ -1,8 +1,8 @@
 \documentclass[a4paper, twocolumn, twoside]{article}
-
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{biblatex}
+
 \usepackage[
 	top=2.5cm, % Top margin
 	bottom=2.5cm, % Bottom margin
@@ -13,6 +13,8 @@
 	columnsep=20pt, % Space between text columns (in twocolumn mode)
 ]{geometry}
 
+\usepackage[hidelinks]{hyperref}
+
 \title{Deep learning: Neural Network from scratch\\
 \textit{training a neural network to solve the mnist dataset}}
 \author{Adrien PELFRESNE - Alexis VAPAILLE}
@@ -21,13 +23,58 @@
 \addbibresource{references.bib}
 
 \begin{document}
+
+	\onecolumn
     \maketitle
+	\tableofcontents
 
 	\section{Abstract}
-
-	La perte sur les données de test est exceptionnellement basse (0.0084), ce qui est généralement un très bon signe. Cependant, cette valeur semble inhabituellement faible par rapport à la perte d'entraînement, ce qui pourrait suggérer un éventuel problème dans la manière dont la perte de test a été calculée ou rapportée.
-	TODO : Vérifier que je calcul bien la perte avec mes données de test et que je fais pas de connerie avec les moyennes etc..
-
+	In this report, we are going to review, and present our work
+	of creating a deep neural network "library" from scratch, in rust, without the use of any machine learning or deep learning library.\\
+	The goal of this project was to solve the \textbf{mnist} dataset of handwritten digits, and to provide performances comparaison between
+	two multi-layer-perceptron, with and without convolution.\\
+	Our library let you create your own sequential neural network, with a simple and declarative api and is widely open to extension.
+	Our implementation currently suport
+	\begin{itemize}
+		\item{Dense Layer}
+		\item{Activation Layer with various activation functions}
+		\item{Convolutional Layer}
+		\item{Rehshape Layer}
+		\item{Optimizer (Adam and Stochastic gradient descent)}
+		\item{Various parameters initialization methods}
+	\end{itemize}
+	\clearpage
+	
+	\twocolumn
 	\section{Motivation}
+	The objective with this \textit{from scratch} approach was to learn in details how neural network is really working. because high level library like keras in python
+	and the incredible level of abstraction that come with it, doesn't teach us anything on the underlying process of learning. nevertheless,
+	this underlying work that those library are doing is passionating,
+	we thought it was a shame not to fully understand the whole deep learning process.
+	The only helper library that we have used is \href{https://crates.io/crates/ndarray}{ndarray} which is similar to \textit{ndarray} from the python library 'numpy'.
+	This allowed us to create a relativazly performent implementation of neural networks, without goind \textbf{to} low level.
+	\section{Neural network categories}
+
+	\section{Sequential neural network}
+
+	\section{The learning process}
+
+	\section{Activation}
+
+	\section{Optimizers}
+
+	\section{Convolutional neural network}
+
+	\section{Implementation}
+
+	\section{Results}
+
+	\subsection{Multi-layer perceptron}
+
+	\subsection{Convolutional multi-layer perceptron}
+
+	\section{Discussion}
+
+	\section{Conclusion}
 
 \end{document}
