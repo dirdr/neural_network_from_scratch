@@ -2,7 +2,8 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{biblatex}
-
+\usepackage{hyperref}
+\usepackage{xcolor}
 \usepackage[
 	top=2.5cm, % Top margin
 	bottom=2.5cm, % Bottom margin
@@ -13,7 +14,13 @@
 	columnsep=20pt, % Space between text columns (in twocolumn mode)
 ]{geometry}
 
-\usepackage[hidelinks]{hyperref}
+\hypersetup{
+    colorlinks,
+    linkcolor={black},
+    citecolor={blue!50!black},
+    urlcolor={blue!80!black},
+	frenchlinks=true,
+}
 
 \title{Deep learning: Neural Network from scratch\\
 \textit{training a neural network to solve the mnist dataset}}

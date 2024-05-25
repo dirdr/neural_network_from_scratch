@@ -14,15 +14,15 @@ use crate::dataset::load_dataset;
 
 pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
     let net = NeuralNetworkBuilder::new()
+        .watch(MetricsType::Accuracy)
         .push(DenseLayer::new(
             28 * 28,
             256,
             InitializerType::GlorotUniform,
         ))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(512, 10, InitializerType::GlorotUniform))
-        .push(ActivationLayer::from(Activation::Softmax))
-        .watch(MetricsType::Accuracy);
+        .push(DenseLayer::new(256, 10, InitializerType::GlorotUniform))
+        .push(ActivationLayer::from(Activation::Softmax));
     Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
 }
 
