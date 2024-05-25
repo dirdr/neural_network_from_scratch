@@ -230,52 +230,53 @@ impl Layer for ActivationLayer {
     }
 }
 
-// pub struct ConvolutionalLayer {
-//     kernels: Array4<f64>,
-//     bias: Array2<f64>,
-//     input: Option<Array3<f64>>,
-//     kernel_gradient: Option<Array4<f64>>,
-//     bias_gradient: Option<Array2<f64>>,
-// }
-//
+pub struct ConvolutionalLayer {
+    kernels: ArrayD<f64>,
+    bias: ArrayD<f64>,
+    input: Option<ArrayD<f64>>,
+    kernel_gradient: Option<ArrayD<f64>>,
+    bias_gradient: Option<ArrayD<f64>>,
+}
+
+impl ConvolutionalLayer {
+    pub fn new(
+        input_size: (usize, usize, usize),
+        kernel_size: (usize, usize),
+        number_of_kernel: usize,
+        init: InitializerType,
+    ) -> Self {
+        let (kernel_height, kernel_width): (usize, usize) = kernel_size;
+        let (input_height, input_width, input_depth): (usize, usize, usize) = input_size;
+
+        let output_size: (usize, usize, usize) = (
+            input_height - kernel_height + 1,
+            input_width - kernel_width + 1,
+            number_of_kernel,
+        );
+        let (output_height, output_width, output_depth): (usize, usize, usize) = output_size;
+
+        Self {
+            kernels: init.initialize(
+                input_height * input_width * input_depth,
+                output_height * output_width * output_depth,
+                &[number_of_kernel, kernel_height, kernel_width, input_depth],
+            ),
+            bias: init.initialize(
+                input_height * input_width * input_depth,
+                output_height * output_width * output_depth,
+                &[number_of_kernel],
+            ),
+            input: None,
+            kernel_gradient: None,
+            bias_gradient: None,
+        }
+    }
+}
+
 // impl ConvolutionalLayer {
-//     pub fn new(
-//         input_size: (usize, usize, usize),
-//         kernel_size: (usize, usize),
-//         number_of_kernel: usize,
-//         init: InitializerType,
-//     ) -> Self {
-//         let (kernel_height, kernel_width): (usize, usize) = kernel_size;
-//         let (input_height, input_width, input_depth): (usize, usize, usize) = input_size;
-//
-//         let output_size: (usize, usize, usize) = (
-//             input_height - kernel_height + 1,
-//             input_width - kernel_width + 1,
-//             number_of_kernel,
-//         );
-//         let (output_height, output_width, output_depth): (usize, usize, usize) = output_size;
-//
-//         Self {
-//             kernels: init.initialize_4d(
-//                 input_height * input_width * input_depth,
-//                 output_height * output_width * output_depth,
-//                 (number_of_kernel, kernel_height, kernel_width, input_depth),
-//             ),
-//             bias: init.initialize(
-//                 input_height * input_width * input_depth,
-//                 output_height * output_width * output_depth,
-//                 (number_of_kernel, 1),
-//             ),
-//             input: None,
-//             kernel_gradient: None,
-//             bias_gradient: None,
-//         }
-//     }
-// }
-//
-// impl ConvolutionalLayer {
-//     fn feed_forward(&mut self, input: &Array3<f64>) -> Array3<f64> {
+//     fn feed_forward(&mut self, input: &ArrayD<f64>) -> ArrayD<f64> {
 //         self.input = Some(input.clone());
+//         let input_3d = input.view().into_shape(())
 //         let (number_of_kernel, kernel_height, kernel_width, kernel_depth): (usize, usize, usize, usize) = self.kernels.dim();
 //         let (input_height, input_width, input_depth): (usize, usize, usize) = input.dim();
 //         assert_eq!(input_depth, kernel_depth, "Input depth must match kernel depth");
@@ -302,7 +303,7 @@ impl Layer for ActivationLayer {
 //         output
 //     }
 //
-//     fn propagate_backward(&mut self, output_gradient: &Array3<f64>) -> Array3<f64> {
+//     fn propagate_backward(&mut self, output_gradient: &ArrayD<f64>) -> ArrayD<f64> {
 //         let (number_of_kernels, kernel_height, kernel_width, input_depth) = self.kernels.dim();
 //         let (input_height, input_width, _) = self.input.as_ref().unwrap().dim();
 //         let (output_height, output_width, _): (usize, usize, usize) = output_gradient.dim();

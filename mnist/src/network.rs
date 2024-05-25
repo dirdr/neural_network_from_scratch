@@ -20,21 +20,13 @@ pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
             InitializerType::GlorotUniform,
         ))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(512, 256, InitializerType::GlorotUniform))
-        .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(256, 128, InitializerType::GlorotUniform))
-        .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(128, 64, InitializerType::GlorotUniform))
-        .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(64, 32, InitializerType::GlorotUniform))
-        .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(32, 10, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(512, 10, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::Softmax))
         .watch(MetricsType::Accuracy);
     Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
 }
 
-pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
+pub fn start(neural_network: &mut NeuralNetwork) -> anyhow::Result<()> {
     let dataset = load_dataset()?;
     let (x_train, y_train) = prepare_data(dataset.training)?;
 
