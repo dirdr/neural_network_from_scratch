@@ -16,7 +16,7 @@ pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
     let net = NeuralNetworkBuilder::new()
         .push(DenseLayer::new(
             28 * 28,
-            512,
+            256,
             InitializerType::GlorotUniform,
         ))
         .push(ActivationLayer::from(Activation::ReLU))
@@ -51,8 +51,8 @@ pub fn start(neural_network: &mut NeuralNetwork) -> anyhow::Result<()> {
             &x_validation.to_owned().into_dyn(),
             &y_validation.to_owned().into_dyn(),
         )),
-        20,
-        128,
+        15,
+        64,
     )?;
 
     for (i, (train, validation)) in train_hist

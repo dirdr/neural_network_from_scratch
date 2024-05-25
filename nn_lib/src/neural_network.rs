@@ -219,7 +219,10 @@ impl NeuralNetwork {
         for (batched_x, batched_y) in batches.iter() {
             let output = self.feed_forward(batched_x)?;
             let batch_loss = self.cost_function.cost(&output, batched_y);
+
+            // the cost function is already meaned over the data point of the batch
             total_loss += batch_loss;
+
             bench.metrics.accumulate(&output, batched_y);
             self.backpropagation(&output, batched_y)?;
         }
