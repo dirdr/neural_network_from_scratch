@@ -32,22 +32,22 @@ pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
         )?)
         .push(ConvolutionalLayer::new(
             (28, 28, 1),
-            (5, 5),
-            2,
+            (3, 3),
+            5,
             InitializerType::He,
         ))
         .push(ActivationLayer::from(Activation::Sigmoid))
         .push(ReshapeLayer::new(
-            &[24, 24, 2],
-            &[24 * 24 * 2]
+            &[26, 26, 5],
+            &[26 * 26 * 5]
         )?)
         .push(DenseLayer::new(
-            24 * 24 * 2,
-            256,
+            26 * 26 * 5,
+            100,
             InitializerType::GlorotUniform,
         ))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(256, 10, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(100, 10, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::Softmax));
     Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
 }
@@ -77,7 +77,7 @@ pub fn start(neural_network: &mut NeuralNetwork) -> anyhow::Result<()> {
             &x_validation.to_owned().into_dyn(),
             &y_validation.to_owned().into_dyn(),
         )),
-        15,
+        5,
         64,
     )?;
 
