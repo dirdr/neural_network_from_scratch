@@ -7,7 +7,8 @@ authors = ["Adrien Pelfresne", "Alexis Vapaille"]
 [dependencies]
 log = "0.4.21"
 pretty_env_logger = "0.5.0"
-ndarray = {version = "0.15.6", features = ["matrixmultiply-threading", "rayon", "blas"]}
+# ndarray = {version = "0.15.6", features = ["matrixmultiply-threading", "rayon", "blas"]}
+ndarray = {version = "0.15.6", features = ["matrixmultiply-threading", "rayon"]}
 ndarray-stats = "0.5.1"
 # blas-src = { version = "0.8", default-features = false, features = ["accelerate"] }
 ndarray-rand = "0.14.0"

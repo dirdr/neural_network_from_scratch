@@ -4,7 +4,7 @@ use nn_lib::{
     activation::Activation,
     cost::CostFunction,
     initialization::InitializerType,
-    layer::{ActivationLayer, DenseLayer},
+    layer::{ActivationLayer, ConvolutionalLayer, DenseLayer, ReshapeLayer},
     metrics::MetricsType,
     neural_network::{NeuralNetwork, NeuralNetworkBuilder},
     optimizer::GradientDescent,
@@ -13,10 +13,36 @@ use nn_lib::{
 use crate::dataset::load_dataset;
 
 pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
+    // let net = NeuralNetworkBuilder::new()
+    //     .watch(MetricsType::Accuracy)
+    //     .push(DenseLayer::new(
+    //         28 * 28,
+    //         256,
+    //         InitializerType::GlorotUniform,
+    //     ))
+    //     .push(ActivationLayer::from(Activation::ReLU))
+    //     .push(DenseLayer::new(256, 10, InitializerType::GlorotUniform))
+    //     .push(ActivationLayer::from(Activation::Softmax));
+    // Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
     let net = NeuralNetworkBuilder::new()
         .watch(MetricsType::Accuracy)
+        .push(ReshapeLayer::new(
+            &[28 * 28],
+            &[28, 28, 1]
+        )?)
+        .push(ConvolutionalLayer::new(
+            (28, 28, 1),
+            (5, 5),
+            2,
+            InitializerType::He,
+        ))
+        .push(ActivationLayer::from(Activation::Sigmoid))
+        .push(ReshapeLayer::new(
+            &[24, 24, 2],
+            &[24 * 24 * 2]
+        )?)
         .push(DenseLayer::new(
-            28 * 28,
+            24 * 24 * 2,
             256,
             InitializerType::GlorotUniform,
         ))
