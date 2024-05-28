@@ -11,6 +11,17 @@ impl History {
     pub fn new() -> Self {
         Self { history: vec![] }
     }
+
+    pub fn get_loss_time_series(&self) -> Vec<f64> {
+        self.history.iter().map(|h| h.loss).collect::<Vec<_>>()
+    }
+
+    pub fn get_metric_time_series(&self, metrics_type: MetricsType) -> Option<Vec<f64>> {
+        self.history
+            .iter()
+            .map(|h| h.metrics.get_metric(metrics_type))
+            .collect::<Option<Vec<_>>>()
+    }
 }
 
 impl Default for History {

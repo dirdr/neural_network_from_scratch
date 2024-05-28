@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::{debug, info, trace};
 use ndarray::{s, Array2, ArrayD};
 use nn_lib::{
     activation::Activation,
@@ -81,6 +81,30 @@ pub fn start(neural_network: &mut NeuralNetwork) -> anyhow::Result<()> {
         64,
     )?;
 
+    trace!(
+        "validation loss by epochs {:?}",
+        validation_hist.as_ref().unwrap().get_loss_time_series()
+    );
+    trace!(
+        "validation accuracy by epochs {:?}",
+        validation_hist
+            .as_ref()
+            .unwrap()
+            .get_metric_time_series(MetricsType::Accuracy)
+            .unwrap()
+    );
+
+    trace!(
+        "train loss by epochs {:?}",
+        train_hist.get_loss_time_series()
+    );
+    trace!(
+        "train accuracy by epochs {:?}",
+        train_hist
+            .get_metric_time_series(MetricsType::Accuracy)
+            .unwrap()
+    );
+
     for (i, (train, validation)) in train_hist
         .history
         .iter()
@@ -107,6 +131,7 @@ pub fn start(neural_network: &mut NeuralNetwork) -> anyhow::Result<()> {
         } else {
             debug!("accuracy has not been set")
         }
+        info!("\n");
     }
 
     // evaluate model on test data
