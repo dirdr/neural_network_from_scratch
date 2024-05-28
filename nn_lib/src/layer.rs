@@ -486,7 +486,7 @@ impl Layer for ConvolutionalLayer {
         let (output_h, output_w, output_channels) = self.output_size;
         let batch_size = input.shape()[0];
 
-        let mut col_input = self.im2col_full(input.clone());
+        let mut col_input = self.im2col(input.clone());
 
         let kernel_size = kernel_h * kernel_w * kernel_d;
         let output_gradient_flat = output_gradient

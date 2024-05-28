@@ -1,7 +1,7 @@
 use crate::{
     activation::Activation,
     cost::CostFunction,
-    layer::{ActivationLayer, DenseLayer, Layer, LayerError},
+    layer::{ActivationLayer, ConvolutionalLayer, DenseLayer, Layer, LayerError},
     metrics::{Benchmark, History, MetricsType},
     optimizer::Optimizer,
 };
@@ -285,6 +285,10 @@ impl NeuralNetwork {
             // if other layers (like convolutional implement trainable, need to downcast
             // explicitely)
             if let Some(trainable_layer) = layer.as_any_mut().downcast_mut::<DenseLayer>() {
+                self.optimizer.step(trainable_layer);
+            }
+
+            if let Some(trainable_layer) = layer.as_any_mut().downcast_mut::<ConvolutionalLayer>() {
                 self.optimizer.step(trainable_layer);
             }
         }

@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
                 xor::start(net)?;
             }
             Exemple::Mnist => {
-                let mut net = mnist::get_neural_net(mnist::network::NetType::Mlp)?;
+                let mut net = mnist::get_neural_net(mnist::network::NetType::Conv)?;
                 mnist::start(&mut net)?;
             }
         },
