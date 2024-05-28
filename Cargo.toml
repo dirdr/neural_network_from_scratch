@@ -18,6 +18,7 @@ eframe = "0.27.2"
 image = "0.25.1"
 # ndarray = {version = "0.15.6", features = ["matrixmultiply-threading", "rayon", "blas"]}
 ndarray = {version = "0.15.6", features = ["matrixmultiply-threading", "rayon"]}
+egui_plot = "0.27.2"
 
 [profile.release]
 debug = true

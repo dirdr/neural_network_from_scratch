@@ -86,8 +86,8 @@ pub fn start(neural_network: &mut NeuralNetwork) -> anyhow::Result<()> {
             &x_validation.to_owned().into_dyn(),
             &y_validation.to_owned().into_dyn(),
         )),
-        5,
-        64,
+        10,
+        128,
     )?;
 
     trace!(
