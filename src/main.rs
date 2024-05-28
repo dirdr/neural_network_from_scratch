@@ -13,9 +13,13 @@ fn main() -> anyhow::Result<()> {
     match &cli.mode {
         Mode::Gui(_) => {
             let native_options = eframe::NativeOptions::default();
-            let mut net = mnist::build_neural_net()?;
+            let mut net = mnist::get_neural_net(mnist::network::NetType::Conv)?;
             mnist::start(&mut net)?;
-            let _ = eframe::run_native("Draw a number", native_options, Box::new(|cc| Box::new(Application::new(cc, net))));
+            let _ = eframe::run_native(
+                "Draw a number",
+                native_options,
+                Box::new(|cc| Box::new(Application::new(cc, net))),
+            );
         }
         Mode::Benchmark(options) => match options.run {
             Exemple::Xor => {
@@ -23,7 +27,7 @@ fn main() -> anyhow::Result<()> {
                 xor::start(net)?;
             }
             Exemple::Mnist => {
-                let mut net = mnist::build_neural_net()?;
+                let mut net = mnist::get_neural_net(mnist::network::NetType::Mlp)?;
                 mnist::start(&mut net)?;
             }
         },

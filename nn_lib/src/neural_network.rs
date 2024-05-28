@@ -267,7 +267,7 @@ impl NeuralNetwork {
     ) -> Result<(), LayerError> {
         let mut grad = self
             .cost_function
-            .cost_output_gradient(&net_output, &observed);
+            .cost_output_gradient(net_output, observed);
 
         // if the cost function is dependant of the last layer, the gradient calculation
         // have been done with respect to the net logits directly, thus skip the last layer

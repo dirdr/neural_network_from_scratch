@@ -27,7 +27,7 @@ fn get_training_data() -> (Array2<f64>, Array1<f64>) {
 pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
     let (x, y) = get_training_data();
 
-    let (train_hist, validation_hist) = neural_network.train(
+    let (train_hist, _) = neural_network.train(
         (&x.clone().into_dyn(), &y.insert_axis(Axis(1)).into_dyn()),
         None,
         2000,

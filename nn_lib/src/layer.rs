@@ -1,5 +1,5 @@
+use ndarray::{linalg, Array2, ArrayD, Axis, Dimension, IxDyn, ShapeError};
 use std::any::Any;
-use ndarray::{linalg, par_azip, s, Array2, ArrayD, ArrayView, Axis, Dimension, Ix3, IxDyn, ShapeError};
 use thiserror::Error;
 
 use crate::{activation::Activation, initialization::InitializerType};
@@ -287,7 +287,8 @@ impl ConvolutionalLayer {
         let kernel_d = self.kernels.shape()[2];
         let num_kernels = self.kernels.shape()[3];
 
-        let mut flipped_kernels = ArrayD::zeros(IxDyn(&[kernel_h, kernel_w, kernel_d, num_kernels]));
+        let mut flipped_kernels =
+            ArrayD::zeros(IxDyn(&[kernel_h, kernel_w, kernel_d, num_kernels]));
 
         for ky in 0..kernel_h {
             for kx in 0..kernel_w {
@@ -295,7 +296,8 @@ impl ConvolutionalLayer {
                     for nk in 0..num_kernels {
                         let flipped_ky = kernel_h - 1 - ky;
                         let flipped_kx = kernel_w - 1 - kx;
-                        flipped_kernels[[flipped_ky, flipped_kx, c, nk]] = self.kernels[[ky, kx, c, nk]];
+                        flipped_kernels[[flipped_ky, flipped_kx, c, nk]] =
+                            self.kernels[[ky, kx, c, nk]];
                     }
                 }
             }
@@ -314,7 +316,7 @@ impl ConvolutionalLayer {
         assert_eq!(input.shape()[1], input_h);
         assert_eq!(input.shape()[2], input_w);
         assert_eq!(input.shape()[3], input_channels);
-        assert_eq!(kernel_d, input_channels);  // kernel_depth should match input_channels
+        assert_eq!(kernel_d, input_channels); // kernel_depth should match input_channels
 
         let output_size = output_h * output_w * batch_size;
         let kernel_size = kernel_h * kernel_w * kernel_d;
@@ -358,7 +360,7 @@ impl ConvolutionalLayer {
         // Calculate padding
         let pad_h = kernel_h - 1;
         let pad_w = kernel_w - 1;
-        
+
         // Calculate the total output size as the product of output height, output width, and batch size
         let input_size = input_h * input_w * batch_size;
         let kernel_size = kernel_h * kernel_w * num_kernels;
@@ -367,7 +369,12 @@ impl ConvolutionalLayer {
         let mut result = Array2::zeros((input_size, kernel_size));
 
         // Pad the input tensor
-        let mut padded_input: ArrayD<f64> = ArrayD::zeros(IxDyn(&[batch_size, output_h + 2 * pad_h, output_w + 2 * pad_w, output_channels]));
+        let mut padded_input: ArrayD<f64> = ArrayD::zeros(IxDyn(&[
+            batch_size,
+            output_h + 2 * pad_h,
+            output_w + 2 * pad_w,
+            output_channels,
+        ]));
         for b in 0..batch_size {
             for c in 0..output_channels {
                 for y in 0..output_h {
@@ -400,7 +407,6 @@ impl ConvolutionalLayer {
         result
     }
 
-
     fn convolve(&self, input: &ArrayD<f64>) -> ArrayD<f64> {
         let col = self.im2col(input.clone());
         let (kernel_h, kernel_w, kernel_d, num_kernels) = self.kernels_size;
@@ -409,15 +415,23 @@ impl ConvolutionalLayer {
 
         let kernel_size = kernel_h * kernel_w * kernel_d;
 
-        let kernels_reshaped = self.kernels.clone().into_shape((num_kernels, kernel_size)).unwrap();
+        let kernels_reshaped = self
+            .kernels
+            .clone()
+            .into_shape((num_kernels, kernel_size))
+            .unwrap();
 
-        let col_reshaped = col.into_shape((batch_size * output_h * output_w, kernel_size)).unwrap();
+        let col_reshaped = col
+            .into_shape((batch_size * output_h * output_w, kernel_size))
+            .unwrap();
 
         let mut result = Array2::zeros((batch_size * output_h * output_w, output_channels));
 
         linalg::general_mat_mul(1.0, &col_reshaped, &kernels_reshaped.t(), 0.0, &mut result);
 
-        result.into_shape(IxDyn(&[batch_size, output_h, output_w, output_channels])).unwrap()
+        result
+            .into_shape(IxDyn(&[batch_size, output_h, output_w, output_channels]))
+            .unwrap()
     }
 
     fn convolve_full(&self, output: &ArrayD<f64>) -> ArrayD<f64> {
@@ -428,15 +442,23 @@ impl ConvolutionalLayer {
 
         let kernel_size = kernel_h * kernel_w * num_kernels;
 
-        let kernels_reshaped = self.flip_kernels().clone().into_shape((kernel_d, kernel_size)).unwrap();
+        let kernels_reshaped = self
+            .flip_kernels()
+            .clone()
+            .into_shape((kernel_d, kernel_size))
+            .unwrap();
 
-        let col_reshaped = col.into_shape((batch_size * input_h * input_w, kernel_size)).unwrap();
+        let col_reshaped = col
+            .into_shape((batch_size * input_h * input_w, kernel_size))
+            .unwrap();
 
         let mut result = Array2::zeros((batch_size * input_h * input_w, input_channels));
 
         linalg::general_mat_mul(1.0, &col_reshaped, &kernels_reshaped.t(), 0.0, &mut result);
 
-        result.into_shape(IxDyn(&[batch_size, input_h, input_w, input_channels])).unwrap()
+        result
+            .into_shape(IxDyn(&[batch_size, input_h, input_w, input_channels]))
+            .unwrap()
     }
 }
 
@@ -451,8 +473,14 @@ impl Layer for ConvolutionalLayer {
         Ok(output)
     }
 
-    fn propagate_backward(&mut self, output_gradient: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
-        let input = self.input.as_ref().expect("Input not set. Call feed_forward first.");
+    fn propagate_backward(
+        &mut self,
+        output_gradient: &ArrayD<f64>,
+    ) -> Result<ArrayD<f64>, LayerError> {
+        let input = self
+            .input
+            .as_ref()
+            .expect("Input not set. Call feed_forward first.");
 
         let (kernel_h, kernel_w, kernel_d, num_kernels) = self.kernels_size;
         let (output_h, output_w, output_channels) = self.output_size;
@@ -461,21 +489,37 @@ impl Layer for ConvolutionalLayer {
         let mut col_input = self.im2col_full(input.clone());
 
         let kernel_size = kernel_h * kernel_w * kernel_d;
-        let output_gradient_flat = output_gradient.clone().into_shape((batch_size * output_h * output_w, output_channels)).unwrap();
+        let output_gradient_flat = output_gradient
+            .clone()
+            .into_shape((batch_size * output_h * output_w, output_channels))
+            .unwrap();
 
         // Calculate the gradient with respect to the input (dL/dX) using the convolve function with flipped kernels
-        let d_input = self.convolve_full(&output_gradient);
+        let d_input = self.convolve_full(output_gradient);
 
-        col_input = col_input.into_shape((batch_size * output_h * output_w, kernel_size)).unwrap();
+        col_input = col_input
+            .into_shape((batch_size * output_h * output_w, kernel_size))
+            .unwrap();
 
         // Calculate the gradient with respect to the filters (dL/dW)
         let mut d_kernels = Array2::zeros((num_kernels, kernel_size));
-        linalg::general_mat_mul(1.0, &output_gradient_flat.t(), &col_input, 0.0, &mut d_kernels);
-        let d_kernels = d_kernels.into_shape(IxDyn(&[kernel_h, kernel_w, kernel_d, num_kernels])).unwrap();
+        linalg::general_mat_mul(
+            1.0,
+            &output_gradient_flat.t(),
+            &col_input,
+            0.0,
+            &mut d_kernels,
+        );
+        let d_kernels = d_kernels
+            .into_shape(IxDyn(&[kernel_h, kernel_w, kernel_d, num_kernels]))
+            .unwrap();
         self.kernel_gradient = Some(d_kernels);
 
         // Calculate the gradient with respect to the biases (dL/db)
-        let d_biases = output_gradient.sum_axis(Axis(0)).sum_axis(Axis(0)).sum_axis(Axis(0));
+        let d_biases = output_gradient
+            .sum_axis(Axis(0))
+            .sum_axis(Axis(0))
+            .sum_axis(Axis(0));
         self.bias_gradient = Some(d_biases);
 
         Ok(d_input)
@@ -525,20 +569,19 @@ pub struct ReshapeLayer {
 }
 
 impl ReshapeLayer {
-    pub fn new(
-        input_shape: &[usize],
-        output_shape: &[usize],
-    ) -> Result<Self, LayerError> {
-            let input_elements: usize = input_shape.iter().product();
-            let output_elements: usize = output_shape.iter().product();
-            if input_elements != output_elements {
-                return Err(LayerError::ReshapeError(ShapeError::from_kind(ndarray::ErrorKind::IncompatibleShape)));
-            }
-            Ok(Self {
-                input: None,
-                input_shape: IxDyn(input_shape),
-                output_shape: IxDyn(output_shape),
-            })
+    pub fn new(input_shape: &[usize], output_shape: &[usize]) -> Result<Self, LayerError> {
+        let input_elements: usize = input_shape.iter().product();
+        let output_elements: usize = output_shape.iter().product();
+        if input_elements != output_elements {
+            return Err(LayerError::ReshapeError(ShapeError::from_kind(
+                ndarray::ErrorKind::IncompatibleShape,
+            )));
+        }
+        Ok(Self {
+            input: None,
+            input_shape: IxDyn(input_shape),
+            output_shape: IxDyn(output_shape),
+        })
     }
 }
 
@@ -555,18 +598,25 @@ impl Layer for ReshapeLayer {
         shape.extend_from_slice(self.output_shape.as_array_view().as_slice().unwrap());
 
         if input.shape().iter().product::<usize>() != shape.iter().product() {
-            return Err(LayerError::ReshapeError(ShapeError::from_kind(ndarray::ErrorKind::IncompatibleShape)));
+            return Err(LayerError::ReshapeError(ShapeError::from_kind(
+                ndarray::ErrorKind::IncompatibleShape,
+            )));
         }
         Ok(input.clone().into_shape(shape).unwrap())
     }
 
-    fn propagate_backward(&mut self, output_gradient: &ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
+    fn propagate_backward(
+        &mut self,
+        output_gradient: &ArrayD<f64>,
+    ) -> Result<ArrayD<f64>, LayerError> {
         let batch_size: usize = output_gradient.shape()[0];
         let mut shape: Vec<usize> = Vec::with_capacity(self.output_shape.ndim() + 1);
         shape.push(batch_size);
         shape.extend_from_slice(self.input_shape.as_array_view().as_slice().unwrap());
         if output_gradient.shape().iter().product::<usize>() != shape.iter().product() {
-            return Err(LayerError::ReshapeError(ShapeError::from_kind(ndarray::ErrorKind::IncompatibleShape)));
+            return Err(LayerError::ReshapeError(ShapeError::from_kind(
+                ndarray::ErrorKind::IncompatibleShape,
+            )));
         }
         Ok(output_gradient.clone().into_shape(shape).unwrap())
     }

@@ -12,24 +12,22 @@ use nn_lib::{
 
 use crate::dataset::load_dataset;
 
-pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
-    // let net = NeuralNetworkBuilder::new()
-    //     .watch(MetricsType::Accuracy)
-    //     .push(DenseLayer::new(
-    //         28 * 28,
-    //         256,
-    //         InitializerType::GlorotUniform,
-    //     ))
-    //     .push(ActivationLayer::from(Activation::ReLU))
-    //     .push(DenseLayer::new(256, 10, InitializerType::GlorotUniform))
-    //     .push(ActivationLayer::from(Activation::Softmax));
-    // Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
+pub enum NetType {
+    Mlp,
+    Conv,
+}
+
+pub fn get_neural_net(net_type: NetType) -> anyhow::Result<NeuralNetwork> {
+    match net_type {
+        NetType::Mlp => build_mlp_net(),
+        NetType::Conv => build_conv_net(),
+    }
+}
+
+fn build_conv_net() -> anyhow::Result<NeuralNetwork> {
     let net = NeuralNetworkBuilder::new()
         .watch(MetricsType::Accuracy)
-        .push(ReshapeLayer::new(
-            &[28 * 28],
-            &[28, 28, 1]
-        )?)
+        .push(ReshapeLayer::new(&[28 * 28], &[28, 28, 1])?)
         .push(ConvolutionalLayer::new(
             (28, 28, 1),
             (3, 3),
@@ -37,10 +35,7 @@ pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
             InitializerType::He,
         ))
         .push(ActivationLayer::from(Activation::Sigmoid))
-        .push(ReshapeLayer::new(
-            &[26, 26, 5],
-            &[26 * 26 * 5]
-        )?)
+        .push(ReshapeLayer::new(&[26, 26, 5], &[26 * 26 * 5])?)
         .push(DenseLayer::new(
             26 * 26 * 5,
             100,
@@ -48,6 +43,20 @@ pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
         ))
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(100, 10, InitializerType::GlorotUniform))
+        .push(ActivationLayer::from(Activation::Softmax));
+    Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
+}
+
+fn build_mlp_net() -> anyhow::Result<NeuralNetwork> {
+    let net = NeuralNetworkBuilder::new()
+        .watch(MetricsType::Accuracy)
+        .push(DenseLayer::new(
+            28 * 28,
+            256,
+            InitializerType::GlorotUniform,
+        ))
+        .push(ActivationLayer::from(Activation::ReLU))
+        .push(DenseLayer::new(256, 10, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::Softmax));
     Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
 }
