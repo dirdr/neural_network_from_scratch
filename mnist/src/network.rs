@@ -4,7 +4,7 @@ use nn_lib::{
     activation::Activation,
     cost::CostFunction,
     initialization::InitializerType,
-    layer::{ActivationLayer, ConvolutionalLayer, DenseLayer, ReshapeLayer},
+    layer::{ActivationLayer, ConvolutionalLayer, DenseLayer, MaxPoolingLayer, ReshapeLayer},
     metrics::MetricsType,
     neural_network::{NeuralNetwork, NeuralNetworkBuilder},
     optimizer::GradientDescent,
@@ -34,10 +34,14 @@ fn build_conv_net() -> anyhow::Result<NeuralNetwork> {
             5,
             InitializerType::He,
         ))
-        .push(ActivationLayer::from(Activation::Sigmoid))
-        .push(ReshapeLayer::new(&[26, 26, 5], &[26 * 26 * 5])?)
+        .push(ActivationLayer::from(Activation::ReLU))
+        .push(MaxPoolingLayer::new(
+            (26, 26, 5),
+            (2, 2)
+        ))
+        .push(ReshapeLayer::new(&[13, 13, 5], &[13 * 13 * 5])?)
         .push(DenseLayer::new(
-            26 * 26 * 5,
+            13 * 13 * 5,
             100,
             InitializerType::GlorotUniform,
         ))
