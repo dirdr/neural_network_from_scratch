@@ -82,13 +82,19 @@
 	\section{Motivation}
 	Our motivation with this \textit{from scratch} approach was to deepen our understanding of neural networks.
 	Because high level library like \href{https://keras.io/}{keras} and the incredible level of abstraction that come with it,
-	let us sometimes forgot the inner machinery. nevertheless,
-	this underlying work that those library are doing is passionating, and we through it was a shame to be a simple user of those interface.
+	let us sometimes forgot the inner machinery. Nevertheless,
+	this underlying work that those library are doing is passionating, and we through it was a shame to be a simple user of those interface.\\
 	The only (methematical) helper library that we have used is \href{https://crates.io/crates/ndarray}{ndarray}
-	which provides an n-dimensional container for general elements and for numerics, and efficients matrix operations on the gpu.\\
+	which provides an n-dimensional container for general elements
+	and for numerics, as well of providing efficients matrix operations on the gpu.\\
 	You can find our project on \href{https://github.com/dirdr/neural_network_from_scratch}{github}, we widely encourage reader to check the source code,
 	as in this report, we won't go into code specific details and focus more on the abstract explanation.\\
-	The project is split into : the actual neural network lib, the mnist exemple, which is using the library, as well a our report sources and the gui.
+	The workspace is split into multiple crates
+	\begin{enumerate}
+		\item The neural network library, under the crate \textit{nn\_lib}
+		\item The mnist exemple, which is using the \textit{nn\_lib} to define the networks and benchmark the dataset, Under the crate mnist
+		\item the gui code to run a interactive drawing mode is included in the workpsace in the app file.
+	\end{enumerate}
 
 	\section{Sequential neural network}
 	The multi-layer perceptron is known  as a \textit{Sequential} neural network, meaning that the \textbf{output}
@@ -101,7 +107,9 @@
 	X_{N} = Y_{N-1}
 	$$
 	with subscript $N$ indentifying layers in sequential order.
-	from the input layer, when we pass our data, through the output layer, data flows through the network and through different kind of layers.
+	from the input layer, when we pass our data,
+	through the output layer, data flows in the network, passing
+	through different kind of layers.
 
 	\subsection{General layer interface}
 	We have defined a general \textit{Layer} interface, to be implemented by all the differents layer we gonna use.\\
@@ -111,8 +119,9 @@
 	We will cover the use of these function later, alongside the theorical explanation of these concepts.
 
 	\subsection{Dense layer}
-	In a dense layer, also knowed as \textit{Linear layer} each input neuron is connected to every output neurone,
-	each connexion is called a \textit{weight}, $w_{ij}$ is the weight connecting neurone $x_i$ (from the input) to neurone $y_j$ (to the output).
+	A dense layer, also knowed as \textit{Linear layer}, is a layer where each input neuron is connected to every output neurone,
+	each connexion is called a \textit{weight}, $w_{ij}$ is the weight
+	connecting neurone $x_i$ (input) to neurone $y_j$ (output).
 
 	\begin{figure}[H]
 		\centering
@@ -133,24 +142,43 @@
 			}
 		  }
 		\end{tikzpicture}
-	\caption{a Dense Layer}
+	\caption{Dense Layer with 3 input nodes and 4 output nodes}
 	\end{figure}
 	
-	The output value $y_j$ of a dense layer neuron is given by
+	We calculate a dense layer neuron output value $y_j$ as 
 	$$
 	y_j = \sum_{i=1}^{n} x_i w_{i,j} + b_j
 	$$
-	
-	with $b_j$ the bias term for the output neuron $j$.
-	This calculation can be expressed using matrices operation on whole vectors.
+
+	which is the bias corrected weighted sum of all the connected input nodes.
+	$b_j$ is the bias term for the output neuron $j$.
+	We can rewrite this operation to use matrix operation on whole vectors.
 
 	$$
 	Y = XW + B
 	$$
 
+	with $Y \in \mathbb{R}^j$, $X \in \mathbb{R}^i$, $W \in M_{i*j}(\mathbb{R})$ and $B \in \mathbb{R}^j$\\
+	In this report, we will annotate vector like vector, but note that to
+	be able to do the matmul in practice, a vector $X \in \mathbb{R}^i$ is actually broadcasted to a matrice $M_{1*i} (\mathbb{R})$
+
+	\clearpage
+
 	\subsection{Activation layer}
-	In a lot of deep neural network content, an activation function is applied inside the dense layer to produce the $y$ output value from the weighted sum $z$.
-	We choose, in our implementation, to enhance the seperation of concerns, with a decoupled version.\\
+	There are two school of thought for defining activations.
+	\begin{enumerate}
+		\item activations are used to produce the output value \textbf{inside} a dense layer,
+			in this case, the weighted sum of the dense layer is called $z$, and $y$ is calculated by applying
+			an activation $\sigma$ to $z$ : $y : \sigma(z)$.
+		\item activations are used \textbf{outside} dense layer  in this case,
+			the output of a dense layer $y$ is equal to the weighted sum $z$.
+			An activation Layer is used as a seperate layer,
+			that applie the activation function to each neuron.
+	\end{enumerate}
+
+	We implemented our sequential neural network with the second paradigm,
+	because it is actually easier in code to manage a dense and a activation
+	layer separatly, mainly for backpropagation calculation ease.
 
 	\begin{figure}[H]
 	\centering
@@ -167,19 +195,21 @@
 		}
 	  }
 	\end{tikzpicture}
-	\caption{Element-wise Connections Between Two Layers}
+	\caption{Activation layer with 4 input neuron}
 	\end{figure}
 
-	The Activation layer take a vector of size $n$ as input and produce a same length vector as a output, with the activation function applied 
-	to each neuron.
-	we must note that some activations function transform a vector by mapping individual component through the function, like the ReLU
+	The Activation layer take a vector $X \in \mathbb{R}^n$  as input and produce a vector $Y \in \mathbb{R}^n $ as output,
+	with the activation function applied to each neuron.\\
+	We must note that some activations function transform vector by
+	mapping the vector individual components $x$ through the function, like ReLU
 
 	$$
-	ReLU(z) = max(0, z)
+	ReLU(x) = max(0, x)
 	$$
 
-	while other activation functions such as \textit{softmax} take vector  $z$ of $K$ real number,
-	and is used to convert a vector of $K$ real number into a probability distribution of $K$ possible outcomes.
+	While other activation functions, like \textit{softmax} work on whole vectors.
+	Softmax take a vector $z \in \mathbb{R}^K$,
+	convert it into a probability distribution of $K$ possible outcomes.
 
 	$$
 	\sigma : \mathbb{R}^{K} \rightarrow (0, 1)^K, K \geq 1
@@ -191,78 +221,101 @@
 	\sigma(\mathbf{z})_i = \frac{e^{z_i}}{\sum_{j = 1}^{K} e^{z_j}}
 	$$
 
-	we have implemented a variety of activations function, to try different options and see what works the best with the mnist dataset.
+	Currents activations function implemented in our library are :
+	\begin{itemize}
+		\item{Sigmoid}
+		\item{ReLU}
+		\item{Tanh}
+		\item{Softmax}
+	\end{itemize}
 
 	\section{Cost function}
-	To mesure how well our neural network perform, we use a cost function, which output a real number,
-	by comparing the neural network \textit{output}, and the effective \textit{observed} value.
-	A simple cost function is the meaned squared error, which is defined as : 
+	To mesure how well a neural network perform, we use a cost function, 
+	which output a real number
+	by comparing the neural network \textit{output}, 
+	and the \textit{observed} value.\\
+	A simple cost function is the meaned squared error :
 
 	$$
 	\text{MSE} = \frac{1}{n} \sum_{i=1}^{n} (\hat{y}_i - y_i)^2
 	$$
 
-	this cost function is great for regression neural network when we want to predict a continuous value, but for a classification task,
-	like the mnist data set (when we need to classifie each image)
-	we can use the cross entropy cost function, defined as :
+	The MSE function is great for regression neural network when we want to predict a continuous value from a input.
+	To do classification, like in the mnist data of handwritten digit,
+	we use another cost function,
+	the cross entropy cost function :
 
 	$$
 		\text{Cross Entropy} = -\sum_{c=1}^{C} y_{c} \log(\hat{y}_{c})
 	$$
 
-	with $C$ the number of class (eg: 10 for the mnist dataset), $y_{c}$ the observed probability, and $\hat{y}_{c}$ the neural network output.
+	with $C$ the number of class (eg: 10 for the mnist dataset), $y_{c}$ 
+	the observed probability, and $\hat{y}_{c}$ the neural network output.\\
+	This expression simpifie as
 
-	and even
 	$$
 		\text{Cross Entropy} = -\log(\hat{y}_{c})
 	$$
 
-	if $y_{c}$ is a one hot encoded, vector of observed values, (ie: 1 for the observed class and 0 for others).
+	if $y_{c}$ is one hot encoded (ie: 1 for the observed class and 0 for others).
 
 	\section{The learning process}
 	\subsection{Gradient}
 	The gradient of a function $\nabla f$ is the vector field that represents the direction
-	and rate of the quickest increase of the function from a point $p$.
-	We can visualize the gradient of the function $-(\cos^2 x  +\cos^2 y)^2$
+	and rate of the quickest increase of the function from a point $p$.\\
+	We can visualize the gradient and the curve of a function $f(x, y) = -(\cos^2 x  +\cos^2 y)^2$\\
 
-	\begin{figure}
+	\begin{figure}[H]
 		\begin{center}
 			\includegraphics[width=\columnwidth]{images/gradient_2d.png}
 		\end{center}
 		\caption{Function representation and gradient field of the function $-(\cos^2 x  +\cos^2 y)^2$}\label{fig:gradien2d}
 	\end{figure}
 
-	at the bottom of the image, we can visualize the vector field for each point $(x, y)$. with the arrow representing the quickest increase.
-	
-	\subsection{Minimization}
-	To make our neural network lean, we want to adjust his parameters (ie: weights and biases) to \textbf{minimize the cost function $C$}.
-	The algorithm used to minimize the cost function is known as the \textit{Gradient descent}, and the idea, is to get down our function by going through the stepest descent
-	in the function, repeating that way we are sure to reach, at least a local minimum.
+	The field vector below the function curve represent the gradient,
+	for each point $p = (x, y)$ the arrow at $p$ point toward the direction
+	with the fastest increase of $f$.
 
-	Here is the process for a gradient descent step :
+	\subsection{Minimization}
+	To make our neural network lean, we adjust his parameters (ie: weights and biases for a dense layer)
+	to \textbf{minimize the cost function $C$ of the network}.
+	We can use the cost function gradient, which tell us the direction and magnitude
+	of the fastest \textbf{increase} of cost, and proceed to go in the opposite direction,
+	which will make us go toward the fastest \textbf{decrease} of the cost function.\\
+	The algorithm used to minimize the cost function is the \textit{gradient descent},
+	which will repeatedly descent the curve by going toward the opposite of the gradient of the cost function.
+
+	Here is the process for a signle gradient descent step :
 	\begin{enumerate}
-		\item feed \textbf{all} your input data points into the network, calculating the cost for every output.
-		\item calculate the averaged cost function.
+		\item feed all input data points into the network,
+			calculating the cost for every output.
+		\item calculate the averaged cost.
 		\item compute the gradient of the averaged cost function \textbf{with respect to the network parameters}.
 		\item update the parameters in the opposite direction of the gradient
 	\end{enumerate}
 
 	\subsection{backpropagation}
-
-	The algorithm used to calculate the gradient of the cost function with respect to the neural network parameters
-	is called backpropagation. It is a way to precisely calculate
-	(and not only estimate like the finite difference method) this gradient.\\
-	The gradient will be calculated for each layer,
-	starting from the last layer and going all the way back to the first layer.
+	To do a gradient descent step, we need the gradient of
+	the cost function with respect to the neural network parameters,
+	the algorithm used to calculate this gradient 
+	is called \textbf{backpropagation}.\\
+	Backpropagation precisely calculate
+	(and not only estimate like the finite difference method) the gradient of the cost function $C$ with respect to the neural network parameters,
+	that we will call parameters gradient $\frac{\partial C}{\partial P}$.\\
+	For each layer $L$, we calculate the gradient with respect to the parameters of $L$,
+	starting from the last layer $L_n$ and going all the way back to the first layer $L_0$.\\
 	The key methematical tool used in backpropagation is the chain rule,
 	which allow the gradient of the cost function
 	to be split into gradient of simpler functions at each neuron within the network.\\
-	For each layer, to calculate the parameters gradient $\frac{\partial C}{\partial P}$,
-	we need to have the output gradient $\frac{\partial C}{\partial Y}$,
-	this gradient will be given to us by the next layer. 
-
-	we also want to calculate $\frac{\partial C}{\partial X}$, the input gradient $X$, to give it to the previous layer,
-	which will use it as her own \textbf{output gradient}, because, as we said, the output gradient of one layer is the input gradient of the next layer
+	For each layer $L_n$, to calculate the parameters gradient $\frac{\partial C}{\partial P_n}$,
+	we need to know the output gradient $\frac{\partial C}{\partial Y_n}$, this gradient is given to us by the next layer in the sequential order,
+	because in the sequential architecture $\frac{\partial C}{\partial X_{n+1}} = \frac{\partial C}{\partial Y_n}$.
+	We want to also calculate $\frac{\partial C}{\partial X_i}$, the input $X$ gradient,
+	to transmit it to the previous layer, which need it to calculate her own parameters gradient $\frac{\partial C}{\partial W_{i-1}}$.\\
+	You can probably feel why this process is called backpropagation, we are sharing gradient,
+	from layer to layer, starting at the last layer and going back up to the start of the net.
+	Each layer implementation will have a specific implementation of the \textbf{propagate backward method},
+	in the next sections, we will cover the calculation for the layer we used in our library.
 
 	\subsection{Dense layer backpropagation}
 
@@ -279,7 +332,7 @@
 	\end{bmatrix}
 	\end{align}
 
-	The cost function $C$ depend on $Y$ which depend on $W$ thus $C$ depend on $W$
+	The cost function $C$ depend on $Y$ which depend on $W$ thus $C$ depend on $W$ (chain rule)
 
 	$$
     \frac{\partial C}{\partial W} = \frac{\partial C}{\partial Y} \frac{\partial Y}{\partial W}
@@ -406,7 +459,7 @@
 	but it exist other optimizers such as \textit{Adam}.
 
 	\subsection{Adam}
-	Adam accelerate the convergence towards the optimal set of weights by taking into account pass gradient,
+	Adam accelerate the convergence towards the optimal set of weights by taking into account passed gradient,
 	and adam will adapt the learning rate for each individual weight.
 
 	ADAM initializes two vectors, 
@@ -433,7 +486,7 @@
 		where $\theta$ are the parameters, $\eta$ is the learning rate, and $\epsilon$ is a small constant for numerical stability.
 	\end{enumerate}
 
-	\section{All about batch}
+	\section{Batching}
 	We went through several feed forward implementations. The first one was to pass data point one by one in the network
 	$x \in \mathbb{R}^{i}$\dots. This was very slow, for exemple, for the mnist dataset, which has 60k training exemples,
 	we where going through the whole neural network : feed forward, cost evaluation, back propagation, 60k times.
