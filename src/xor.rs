@@ -5,12 +5,12 @@ use nn_lib::{
     cost::CostFunction,
     initialization::InitializerType,
     layer::{ActivationLayer, DenseLayer},
-    neural_network::{NeuralNetwork, NeuralNetworkBuilder},
+    sequential::{Sequential, SequentialBuilder},
     optimizer::GradientDescent,
 };
 
-pub fn build_neural_net() -> anyhow::Result<NeuralNetwork> {
-    let net = NeuralNetworkBuilder::new()
+pub fn build_neural_net() -> anyhow::Result<Sequential> {
+    let net = SequentialBuilder::new()
         .push(DenseLayer::new(2, 8, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(8, 1, InitializerType::GlorotUniform))
@@ -24,7 +24,7 @@ fn get_training_data() -> (Array2<f64>, Array1<f64>) {
     (x, y)
 }
 
-pub fn start(mut neural_network: NeuralNetwork) -> anyhow::Result<()> {
+pub fn start(mut neural_network: Sequential) -> anyhow::Result<()> {
     let (x, y) = get_training_data();
 
     let (train_hist, _) = neural_network.train(

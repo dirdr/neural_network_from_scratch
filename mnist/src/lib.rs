@@ -1,6 +1,6 @@
 pub mod dataset;
-pub mod network;
+pub mod network_definition;
 pub mod utils;
 
-pub use network::get_neural_net;
-pub use network::start;
+pub use network_definition::get_neural_net;
+pub use network_definition::start;

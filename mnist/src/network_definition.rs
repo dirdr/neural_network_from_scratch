@@ -4,10 +4,10 @@ use nn_lib::{
     activation::Activation,
     cost::CostFunction,
     initialization::InitializerType,
-    layer::{ActivationLayer, ConvolutionalLayer, DenseLayer, MaxPoolingLayer, ReshapeLayer},
+    layer::{ActivationLayer, ConvolutionalLayer, DenseLayer, ReshapeLayer},
     metrics::MetricsType,
-    neural_network::{NeuralNetwork, NeuralNetworkBuilder},
     optimizer::GradientDescent,
+    sequential::{Sequential, SequentialBuilder},
 };
 
 use crate::dataset::load_dataset;
@@ -17,16 +17,15 @@ pub enum NetType {
     Conv,
 }
 
-pub fn get_neural_net(net_type: NetType) -> anyhow::Result<NeuralNetwork> {
+pub fn get_neural_net(net_type: NetType) -> anyhow::Result<Sequential> {
     match net_type {
         NetType::Mlp => build_mlp_net(),
         NetType::Conv => build_conv_net(),
     }
 }
 
-fn build_conv_net() -> anyhow::Result<NeuralNetwork> {
-    let net = NeuralNetworkBuilder::new()
-        .watch(MetricsType::Accuracy)
+fn build_conv_net() -> anyhow::Result<Sequential> {
+    let net = SequentialBuilder::new()
         .push(ReshapeLayer::new(&[28 * 28], &[28, 28, 1])?)
         .push(ConvolutionalLayer::new(
             (28, 28, 1),
@@ -34,38 +33,53 @@ fn build_conv_net() -> anyhow::Result<NeuralNetwork> {
             5,
             InitializerType::He,
         ))
-        .push(ActivationLayer::from(Activation::ReLU))
-        .push(MaxPoolingLayer::new(
-            (26, 26, 5),
-            (2, 2)
-        ))
-        .push(ReshapeLayer::new(&[13, 13, 5], &[13 * 13 * 5])?)
+        .push(ActivationLayer::from(Activation::Sigmoid))
+        .push(ReshapeLayer::new(&[26, 26, 5], &[26 * 26 * 5])?)
         .push(DenseLayer::new(
-            13 * 13 * 5,
+            26 * 26 * 5,
             100,
             InitializerType::GlorotUniform,
         ))
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(100, 10, InitializerType::GlorotUniform))
-        .push(ActivationLayer::from(Activation::Softmax));
+        .push(ActivationLayer::from(Activation::Softmax))
+        .watch(MetricsType::Accuracy);
     Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
 }
 
-fn build_mlp_net() -> anyhow::Result<NeuralNetwork> {
-    let net = NeuralNetworkBuilder::new()
-        .watch(MetricsType::Accuracy)
-        .push(DenseLayer::new(
-            28 * 28,
-            256,
-            InitializerType::GlorotUniform,
-        ))
+fn build_mlp_net() -> anyhow::Result<Sequential> {
+    let net = SequentialBuilder::new()
+        .push(DenseLayer::new(784, 256, InitializerType::GlorotUniform))
+        .push(ActivationLayer::from(Activation::ReLU))
+        .push(DenseLayer::new(256, 256, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(256, 10, InitializerType::GlorotUniform))
-        .push(ActivationLayer::from(Activation::Softmax));
-    Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
+        .push(ActivationLayer::from(Activation::Softmax))
+        .watch(MetricsType::Accuracy);
+    Ok(net.compile(GradientDescent::new(0.04), CostFunction::CrossEntropy)?)
 }
 
-pub fn start(neural_network: &mut NeuralNetwork) -> anyhow::Result<()> {
+struct PreparedDataSet {
+    train: (ArrayD<f64>, ArrayD<f64>),
+    validation: (ArrayD<f64>, ArrayD<f64>),
+    test: (ArrayD<f64>, ArrayD<f64>),
+}
+
+impl PreparedDataSet {
+    pub fn get_train_ref(&self) -> (&ArrayD<f64>, &ArrayD<f64>) {
+        (&self.train.0, &self.train.1)
+    }
+
+    pub fn get_validation_ref(&self) -> (&ArrayD<f64>, &ArrayD<f64>) {
+        (&self.validation.0, &self.validation.1)
+    }
+
+    pub fn get_test_ref(&self) -> (&ArrayD<f64>, &ArrayD<f64>) {
+        (&self.test.0, &self.test.1)
+    }
+}
+
+fn get_data() -> anyhow::Result<PreparedDataSet> {
     let dataset = load_dataset()?;
     let (x_train, y_train) = prepare_data(dataset.training)?;
 
@@ -76,22 +90,34 @@ pub fn start(neural_network: &mut NeuralNetwork) -> anyhow::Result<()> {
         x_train.slice(s![48000..60000, ..]),
         y_train.slice(s![48000..60000, ..]),
     );
+
     let (x_train, y_train) = (
         x_train.slice(s![0..48000, ..]),
         y_train.slice(s![0..48000, ..]),
     );
 
-    let (train_hist, validation_hist) = neural_network.train(
-        (
-            &x_train.to_owned().into_dyn(),
-            &y_train.to_owned().into_dyn(),
+    Ok(PreparedDataSet {
+        train: (x_train.to_owned().into_dyn(), y_train.to_owned().into_dyn()),
+        validation: (
+            x_validation.to_owned().into_dyn(),
+            y_validation.to_owned().into_dyn(),
         ),
-        Some((
-            &x_validation.to_owned().into_dyn(),
-            &y_validation.to_owned().into_dyn(),
-        )),
-        10,
-        128,
+        test: (x_test.into_dyn(), y_test.into_dyn()),
+    })
+}
+
+pub fn start(
+    neural_network: &mut Sequential,
+    batch_size: usize,
+    epochs: usize,
+) -> anyhow::Result<()> {
+    let prepared = get_data()?;
+
+    let (train_hist, validation_hist) = neural_network.train(
+        prepared.get_train_ref(),
+        Some(prepared.get_validation_ref()),
+        epochs,
+        batch_size,
     )?;
 
     trace!(
@@ -147,12 +173,11 @@ pub fn start(neural_network: &mut NeuralNetwork) -> anyhow::Result<()> {
         info!("\n");
     }
 
-    // evaluate model on test data
-    let bench = neural_network.evaluate(&x_test.into_dyn(), &y_test.into_dyn(), 10);
+    let bench = neural_network.evaluate(prepared.get_test_ref(), 10);
 
     info!("loss for test data : {}", bench.loss);
     if let Some(accuracy) = bench.metrics.get_metric(MetricsType::Accuracy) {
-        info!("network accuracy : {}", accuracy);
+        info!("network test accuracy : {:.2}%", accuracy * 100f64);
     } else {
         debug!("accuracy has not been set")
     }
