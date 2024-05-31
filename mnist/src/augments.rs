@@ -69,7 +69,7 @@ pub fn augment_dataset(images: &ArrayD<u8>) -> ArrayD<u8> {
         let image = images.index_axis(ndarray::Axis(0), i).to_owned();
         // save every 1000 images
         let save = i % 10000 == 0;
-        let augmented_image = augment_image(&image, save, i);
+        let augmented_image = augment_image(&image, false, i);
         augmented_images
             .index_axis_mut(ndarray::Axis(0), i)
             .assign(&augmented_image);
