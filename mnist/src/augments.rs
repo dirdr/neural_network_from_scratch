@@ -2,7 +2,7 @@ use std::path::Path;
 
 use image::{imageops, GrayImage, Luma};
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
-use log::debug;
+use log::{debug, trace};
 use ndarray::{Array, Array2, ArrayD};
 use rand::Rng;
 
@@ -65,7 +65,7 @@ pub fn augment_dataset(images: &ArrayD<u8>) -> ArrayD<u8> {
     let mut augmented_images = Array::zeros(images.raw_dim());
 
     for i in 0..num_samples {
-        debug!("augmenting the sample {}", i);
+        trace!("augmenting the sample {}", i);
         let image = images.index_axis(ndarray::Axis(0), i).to_owned();
         // save every 1000 images
         let save = i % 10000 == 0;

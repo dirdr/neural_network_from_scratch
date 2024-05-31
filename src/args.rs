@@ -25,6 +25,9 @@ pub enum Mode {
 pub struct GuiOptions {
     #[arg(short, long, default_value = "false")]
     pub augment: bool,
+
+    #[arg(short, long, default_value = "false")]
+    pub with_conv: bool,
 }
 
 #[derive(Parser, Debug, Clone)]

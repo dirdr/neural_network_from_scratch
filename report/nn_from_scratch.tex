@@ -726,6 +726,20 @@ Ok(net.compile(GradientDescent::new(0.04), CostFunction::CrossEntropy)?)
 	\subsection{Convolutional multi-layer perceptron}
         Alexou fais les resultats !!
 
+	\begin{figure}[H]
+		\begin{center}
+			\includegraphics[width=\columnwidth]{images/cost_conv.png}
+		\end{center}
+		\caption{Training vs. Validation cost convolutional model}\label{fig:cost_conv}
+	\end{figure}
+
+	\begin{figure}[H]
+		\begin{center}
+			\includegraphics[width=\columnwidth]{images/accuracy_conv.png}
+		\end{center}
+		\caption{Training vs. Validation accuracy convolutional model}\label{fig:accuracy_conv}
+	\end{figure}
+
 	\onecolumn
 	\section{GUI — Test the model}
 	The network shows some very great accuracy with the dataset itself, and we wanted to try by ourselves,

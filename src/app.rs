@@ -10,7 +10,7 @@ use nn_lib::{layer::LayerError, sequential::Sequential};
 
 pub struct Application {
     multilayer_perceptron: Sequential,
-    //convolutional_network: Sequential,
+    convolutional_network: Option<Sequential>,
     conv_chosen: bool,
     painter_size: Vec2,
     paths: Vec<Vec<Pos2>>,
@@ -23,10 +23,12 @@ impl Application {
     pub fn new(
         creation_context: &eframe::CreationContext<'_>,
         multilayer_perceptron: Sequential,
+        convolutional_network: Option<Sequential>,
     ) -> Self {
         creation_context.egui_ctx.set_visuals(Visuals::light());
         Self {
             multilayer_perceptron,
+            convolutional_network,
             conv_chosen: false,
             painter_size: Vec2::new(280.0, 280.0),
             paths: Vec::default(),
@@ -69,7 +71,14 @@ impl Application {
     }
 
     fn predict_number(&mut self, image: ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
-        self.multilayer_perceptron.predict(&image)
+        if self.conv_chosen {
+            self.convolutional_network
+                .as_ref()
+                .expect("trying to predict with unset convo network")
+                .predict(&image)
+        } else {
+            self.multilayer_perceptron.predict(&image)
+        }
     }
 
     fn draw_thick_line(&self, img: &mut GrayImage, start: Pos2, end: Pos2, thickness: i32) {
@@ -132,11 +141,13 @@ impl App for Application {
                 "MLP running"
             });
 
-            if ui
-                .button(if self.conv_chosen { "MLP" } else { "ConvNet" })
-                .clicked()
-            {
-                self.conv_chosen = !self.conv_chosen;
+            if let Some(_) = self.convolutional_network {
+                if ui
+                    .button(if self.conv_chosen { "MLP" } else { "ConvNet" })
+                    .clicked()
+                {
+                    self.conv_chosen = !self.conv_chosen;
+                }
             }
 
             let (response, painter): (Response, Painter) =
