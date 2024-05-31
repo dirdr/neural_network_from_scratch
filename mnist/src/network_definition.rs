@@ -4,13 +4,13 @@ use nn_lib::{
     activation::Activation,
     cost::CostFunction,
     initialization::InitializerType,
-    layer::{ActivationLayer, ConvolutionalLayer, DenseLayer, ReshapeLayer},
+    layer::{ActivationLayer, ConvolutionalLayer, DenseLayer, MaxPoolingLayer, ReshapeLayer},
     metrics::MetricsType,
     optimizer::GradientDescent,
     sequential::{Sequential, SequentialBuilder},
 };
 
-use crate::dataset::load_dataset;
+use crate::{augments::augment_dataset, dataset::load_dataset};
 
 pub enum NetType {
     Mlp,
@@ -30,18 +30,23 @@ fn build_conv_net() -> anyhow::Result<Sequential> {
         .push(ConvolutionalLayer::new(
             (28, 28, 1),
             (3, 3),
-            5,
+            16,
             InitializerType::He,
         ))
-        .push(ActivationLayer::from(Activation::Sigmoid))
-        .push(ReshapeLayer::new(&[26, 26, 5], &[26 * 26 * 5])?)
-        .push(DenseLayer::new(
-            26 * 26 * 5,
-            100,
-            InitializerType::GlorotUniform,
+        .push(ActivationLayer::from(Activation::ReLU))
+        .push(MaxPoolingLayer::new((26, 26, 16), (2, 2)))
+        .push(ConvolutionalLayer::new(
+            (13, 13, 16),
+            (4, 4),
+            32,
+            InitializerType::He,
         ))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(100, 10, InitializerType::GlorotUniform))
+        .push(MaxPoolingLayer::new((10, 10, 32), (2, 2)))
+        .push(ReshapeLayer::new(&[5, 5, 32], &[5 * 5 * 32])?)
+        .push(DenseLayer::new(5 * 5 * 32, 100, InitializerType::He))
+        .push(ActivationLayer::from(Activation::ReLU))
+        .push(DenseLayer::new(100, 10, InitializerType::He))
         .push(ActivationLayer::from(Activation::Softmax))
         .watch(MetricsType::Accuracy);
     Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
@@ -49,11 +54,11 @@ fn build_conv_net() -> anyhow::Result<Sequential> {
 
 fn build_mlp_net() -> anyhow::Result<Sequential> {
     let net = SequentialBuilder::new()
-        .push(DenseLayer::new(784, 256, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(784, 256, InitializerType::He))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(256, 256, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(256, 256, InitializerType::He))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(256, 10, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(256, 10, InitializerType::He))
         .push(ActivationLayer::from(Activation::Softmax))
         .watch(MetricsType::Accuracy);
     Ok(net.compile(GradientDescent::new(0.04), CostFunction::CrossEntropy)?)
@@ -79,8 +84,13 @@ impl PreparedDataSet {
     }
 }
 
-fn get_data() -> anyhow::Result<PreparedDataSet> {
-    let dataset = load_dataset()?;
+fn get_data(augment: bool) -> anyhow::Result<PreparedDataSet> {
+    let mut dataset = load_dataset()?;
+
+    if augment {
+        dataset.training.0 = augment_dataset(&dataset.training.0);
+    }
+
     let (x_train, y_train) = prepare_data(dataset.training)?;
 
     // split the training dataset into training / validation
@@ -110,8 +120,9 @@ pub fn start(
     neural_network: &mut Sequential,
     batch_size: usize,
     epochs: usize,
+    augment: bool,
 ) -> anyhow::Result<()> {
-    let prepared = get_data()?;
+    let prepared = get_data(augment)?;
 
     let (train_hist, validation_hist) = neural_network.train(
         prepared.get_train_ref(),

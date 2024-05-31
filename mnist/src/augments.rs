@@ -1,0 +1,76 @@
+use image::{imageops, GrayImage, Luma};
+use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
+use log::debug;
+use ndarray::{Array, Array2, ArrayD};
+use rand::Rng;
+
+fn array_to_image(arr: &ArrayD<u8>) -> GrayImage {
+    let (width, height) = (arr.shape()[1] as u32, arr.shape()[0] as u32);
+    let flat_data: Vec<u8> = arr.iter().cloned().collect();
+    GrayImage::from_raw(width, height, flat_data).unwrap()
+}
+
+fn image_to_array(img: &GrayImage) -> Array2<u8> {
+    let (width, height) = img.dimensions();
+    let raw_data = img.as_raw();
+    Array::from_shape_vec((height as usize, width as usize), raw_data.clone()).unwrap()
+}
+
+fn augment_image(image: &ArrayD<u8>) -> Array2<u8> {
+    let mut rng = rand::thread_rng();
+    let mut img = array_to_image(image);
+
+    // Random horizontal flip
+    if rng.gen_bool(0.5) {
+        img = imageops::flip_horizontal(&img);
+    }
+
+    // Random rotation (-15 to 15 degrees)
+    let angle = rng.gen_range(-15.0..15.0);
+    img = rotate_image(&img, angle);
+
+    // Random shift (up to 2 pixels in any direction)
+    let (x_shift, y_shift) = (rng.gen_range(-5..=5), rng.gen_range(-5..=5));
+    img = shift_image(&img, x_shift, y_shift);
+
+    image_to_array(&img)
+}
+
+fn rotate_image(img: &GrayImage, angle: f32) -> GrayImage {
+    rotate_about_center(
+        img,
+        angle.to_radians(),
+        Interpolation::Bilinear,
+        Luma([0u8]),
+    )
+}
+
+fn shift_image(img: &GrayImage, x_shift: i32, y_shift: i32) -> GrayImage {
+    let (width, height) = img.dimensions();
+    let mut shifted_img = GrayImage::new(width, height);
+
+    for y in 0..height {
+        for x in 0..width {
+            let new_x = (x as i32 + x_shift).max(0).min(width as i32 - 1) as u32;
+            let new_y = (y as i32 + y_shift).max(0).min(height as i32 - 1) as u32;
+            shifted_img.put_pixel(new_x, new_y, *img.get_pixel(x, y));
+        }
+    }
+
+    shifted_img
+}
+
+pub fn augment_dataset(images: &ArrayD<u8>) -> ArrayD<u8> {
+    let num_samples = images.shape()[0];
+    let mut augmented_images = Array::zeros(images.raw_dim());
+
+    for i in 0..num_samples {
+        debug!("augmenting the sample {}", i);
+        let image = images.index_axis(ndarray::Axis(0), i).to_owned();
+        let augmented_image = augment_image(&image);
+        augmented_images
+            .index_axis_mut(ndarray::Axis(0), i)
+            .assign(&augmented_image);
+    }
+    augmented_images
+}

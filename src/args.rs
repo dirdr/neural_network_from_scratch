@@ -23,7 +23,8 @@ pub enum Mode {
 
 #[derive(Parser, Debug, Clone)]
 pub struct GuiOptions {
-    // GUI-specific options can be added here
+    #[arg(short, long, default_value = "false")]
+    pub augment: bool,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -33,6 +34,17 @@ pub struct BenchmarkOptions {
 
     #[arg(short, long)]
     pub epochs: Option<usize>,
+
+    #[arg(short, long, default_value = "mlp")]
+    pub net_type: ArgsNetType,
+}
+
+#[derive(Copy, Clone, ValueEnum, Debug, PartialOrd, Eq, PartialEq)]
+pub enum ArgsNetType {
+    #[clap(alias = "mlp")]
+    Mlp,
+    #[clap(alias = "conv")]
+    Conv,
 }
 
 #[derive(Copy, Clone, ValueEnum, Debug, PartialOrd, Eq, PartialEq)]
