@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use image::{imageops, GrayImage, Luma};
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use log::debug;
@@ -16,22 +18,20 @@ fn image_to_array(img: &GrayImage) -> Array2<u8> {
     Array::from_shape_vec((height as usize, width as usize), raw_data.clone()).unwrap()
 }
 
-fn augment_image(image: &ArrayD<u8>) -> Array2<u8> {
+fn augment_image(image: &ArrayD<u8>, save: bool, index: usize) -> Array2<u8> {
     let mut rng = rand::thread_rng();
     let mut img = array_to_image(image);
 
-    // Random horizontal flip
-    if rng.gen_bool(0.5) {
-        img = imageops::flip_horizontal(&img);
-    }
-
-    // Random rotation (-15 to 15 degrees)
-    let angle = rng.gen_range(-15.0..15.0);
+    let angle = rng.gen_range(-10.0..10.0);
     img = rotate_image(&img, angle);
 
-    // Random shift (up to 2 pixels in any direction)
     let (x_shift, y_shift) = (rng.gen_range(-5..=5), rng.gen_range(-5..=5));
     img = shift_image(&img, x_shift, y_shift);
+
+    if save {
+        img.save(Path::new(&format!("augmented_image_{}.png", index)))
+            .unwrap();
+    }
 
     image_to_array(&img)
 }
@@ -67,7 +67,9 @@ pub fn augment_dataset(images: &ArrayD<u8>) -> ArrayD<u8> {
     for i in 0..num_samples {
         debug!("augmenting the sample {}", i);
         let image = images.index_axis(ndarray::Axis(0), i).to_owned();
-        let augmented_image = augment_image(&image);
+        // save every 1000 images
+        let save = i % 10000 == 0;
+        let augmented_image = augment_image(&image, save, i);
         augmented_images
             .index_axis_mut(ndarray::Axis(0), i)
             .assign(&augmented_image);
