@@ -523,7 +523,170 @@
 	\end{enumerate}
 
 	\section{Convolutional neural network}
-	ALEXIS a toi de travailler
+	A convolutional neural network is a type of neural network mainly used for image recognition. The main use of this network is to offer translation invariance, meaning that it can recognize objects regardless of their position in the input image, compared to the multilayer perceptron presented earlier.
+ 
+    First of all, convolution neural networks are inspired by the way the human brain recognizes shapes. In human recognition, when we look at an object, a visual signal passes successively through filters in the primary visual cortex, then in subsequent areas, to finally ignite a set of neurons in the inferotemporal cortex representing the concept of the object.
+    
+    \subsection{Convolutional layer}
+    In the primary visual cortex, each packet of neurons is connected to a small area of the visual field called the receptive fields. Each neuron in this packet will react to a simple pattern present in the receptive field. For example, one neuron will recognize vertical lines, another horizontal lines, etc...
+    
+    The area of primary visual cortex is covered by packets of neurons whose receptive field is a small area offset from the previous packet. The entire visual field is thus lined with these neuron packets.
+
+    This way of recognizing is reused in convolution layers. Each neuron in the packet is called a filter (or kernel) and symbol recognition is calculated via a mathematical operation called convolution, which has computational similarities with the neurons of the visual cortex.
+    
+    Convolution is a mathematical filtering operation that involves calculating a weighted sum over the filter and dragging this filter over the input image. These different weighted sums are then recorded in the output image :
+
+        \[
+    S_{ij} = b + (X * K)_{ij} = b + \sum_{m=0}^{M-1} \sum_{n=0}^{N-1} X_{i+m, j+n} \cdot K_{m, n}
+    \]
+    
+    Where:
+    \begin{itemize}
+      \item $X$ is the input image,
+      \item $K$ is the convolutional filter (or kernel),
+      \item $S$ is the resulting feature map,
+      \item $i, j$ are the indices of the position in the feature map,
+      \item $M, N$ are the dimensions of the filter.
+      \item $b$ is the bias.
+    \end{itemize}
+
+    \begin{figure}[H]
+		\begin{center}
+			\includegraphics[width=\columnwidth]{images/convolution.png}
+		\end{center}
+		\caption{The convolution operation}
+	\end{figure}
+
+    An image can also have several channels, as in the case of color images, which use 3 channels, one for each of the colors red, green and blue. In our case, with MNIST, we have a grayscale image.
+    
+    Each filter will then pass over all the image channels and perform the convolution operation to produce resulting feature maps. These feature maps detects the few elements of the input image and sends them to the following layers. 
+    
+    The dimensions of the output feature map \( Y \) after applying the convolution can be calculated as:
+
+    \[
+    H_{\text{out}} = H - F + 1
+    \]
+    \[
+    W_{\text{out}} = W - F + 1
+    \]
+    
+    where:
+    \begin{itemize}
+      \item \( H \) is the height of the input feature map.
+      \item \( W \) is the width of the input feature map.
+      \item \( F \) is the size of the filter (kernel).
+      \item \( H_{\text{out}} \) is the height of the output feature map.
+      \item \( W_{\text{out}} \) is the width of the output feature map.
+    \end{itemize}
+
+    \subsection{Convolutional layer backpropagation}
+    Like the other layers, the convolutional layer is trainable, and the weights correspond to the values of the various filters. These filters are updated according to the following formulas.
+
+    \subsubsection{Gradient with respect to the input \( X \)}
+
+    \[
+    \frac{\partial L}{\partial X_{i,j}} = \sum_{m=0}^{M-1} \sum_{n=0}^{N-1} \frac{\partial L}{\partial Y_{i-m,j-n}} \cdot K_{m,n}
+    \]
+
+    \begin{itemize}
+      \item \( \frac{\partial L}{\partial X_{i,j}} \): The gradient of the loss \( L \) with respect to the input \( X \) at position \((i, j)\).
+      \item \( \frac{\partial L}{\partial Y_{i-m,j-n}} \): The gradient of the loss \( L \) with respect to the output \( Y \) at position \((i-m, j-n)\).
+      \item \( K_{m,n} \): The filter value at position \((m, n)\).
+    \end{itemize}
+
+    \subsubsection{Gradient with respect to the weights (filters):}
+    \[
+    \frac{\partial L}{\partial K_{m,n}} = \sum_{i=0}^{H-1} \sum_{j=0}^{W-1} \frac{\partial L}{\partial S_{ij}} \cdot X_{i+m, j+n}
+    \]
+    
+    Where:
+    \begin{itemize}
+      \item \( \frac{\partial L}{\partial K_{m,n}} \) is the gradient of the loss with respect to the filter at position \( (m, n) \).
+      \item \( \frac{\partial L}{\partial S_{ij}} \) is the gradient of the loss with respect to the feature map at position \( (i, j) \).
+      \item \( X_{i+m, j+n} \) is the input value at position \( (i+m, j+n) \).
+    \end{itemize}
+
+    \subsubsection{Gradient with respect to the biases:}
+    \[
+    \frac{\partial L}{\partial b} = \sum_{i=0}^{H-1} \sum_{j=0}^{W-1} \frac{\partial L}{\partial S_{ij}}
+    \]
+
+    Where:
+    \begin{itemize}
+      \item \( \frac{\partial L}{\partial b} \) is the gradient of the loss with respect to the bias.
+    \end{itemize}
+
+    \subsection{Pooling layer}
+    In addition to convolution layers, a convolutional network contains pooling layers. These layers reduce the dimensionality of the convolution layer while retaining important features. They also ensure that the network is invariant to small translations.
+    We're going to define a patch size that will pass over the feature map to retrieve the average or maximum value of the feature map region contained in the patch.
+    
+    There are two types of pooling layer:
+    \begin{itemize}
+      \item \textbf{average pooling} : recovers the average value of the patch
+      \item \textbf{max pooling} : recovers the maximum value of the patch
+    \end{itemize}
+    
+    In the case of MNIST, we decided to implement the max pooling layer, which is more efficient for this dataset.
+
+    The dimensions of the output feature map \( Y \) after Max Pooling can be calculated as:
+    
+    \[
+    H_{\text{out}} = \left\lfloor \frac{H}{p} \right\rfloor
+    \]
+    \[
+    W_{\text{out}} = \left\lfloor \frac{W}{p} \right\rfloor
+    \]
+
+where:
+\begin{itemize}
+  \item \( H \) is the height of the input feature map.
+  \item \( W \) is the width of the input feature map.
+  \item \( p \) is the size of the pooling window.
+  \item \( H_{\text{out}} \) is the height of the output feature map.
+  \item \( W_{\text{out}} \) is the width of the output feature map.
+  \item \( \left\lfloor \cdot \right\rfloor \) denotes the floor function, which rounds down to the nearest integer.
+\end{itemize}
+
+    The max pooling layer formula is : 
+
+    \[
+    Y_{i,j} = \max_{0 \leq m < p, 0 \leq n < p} X_{i \cdot p + m, j \cdot p + n}
+    \]
+    
+    where:
+    \begin{itemize}
+      \item \( Y_{i,j} \) is the value at position \((i, j)\) in the output feature map.
+      \item \( X \) is the input feature map.
+      \item \( p \) is the size of the patch.
+      \item \( X_{i \cdot p + m, j \cdot p + n} \) refers to the value at position \((i \cdot p + m, j \cdot p + n)\) in the input feature map, within the current patch.
+    \end{itemize}
+
+    \begin{figure}[H]
+		\begin{center}
+			\includegraphics[width=\columnwidth]{images/max_pooling_layer.png}
+		\end{center}
+		\caption{Max pooling operation}
+	\end{figure}
+
+    \subsection{Max pooling layer backpropagation}
+    The max pooling layer is not trainable, but the gradient must be propagated to the lower layers.
+    
+    To do this, we use this formula :
+
+    \[
+    \delta_{mn}^{\text{in}} = 
+    \begin{cases}
+    \delta_{i,j}^{\text{out}} & \text{if } X_{i \cdot p + m, j \cdot p + n} \text{is the max patch value} \\
+    0 & \text{otherwise}
+    \end{cases}
+    \]
+    
+    where:
+    \begin{itemize}
+      \item \( \delta_{ij}^{\text{out}} \) is the gradient of the loss with respect to the output of the Max Pooling layer at position \((i, j)\).
+      \item \( X_{i \cdot p + m, j \cdot p + n} \) is the input value at position \((i \cdot p + m, j \cdot p + n)\).
+      \item \( p \) is the size of the patch.
+    \end{itemize}
 
 	\section{Metrics}
 	The mnist dataset, is a classification problem, we can implement multiple metrics
@@ -724,14 +887,62 @@ Ok(net.compile(GradientDescent::new(0.04), CostFunction::CrossEntropy)?)
 	We reach a validation accuracy of 97.10 percent for the final epochs, and the accuracy for the testing data set is 97.31 percent.
 	which is not a \textit{state-of-the-art} accuracy, but is a good result.
 	\subsection{Convolutional multi-layer perceptron}
-        Alexou fais les resultats !!
 
+    We have used this hyperparameters and network definitions
+    \begin{table}[H]
+	\centering
+	\begin{tabular}{|l|c|c|}
+	\hline
+	hyperparameters & epochs & batch size  \\
+	\hline
+	Value & 10 & 128   \\
+	\hline
+	\end{tabular}
+	\caption{hyperparameters convolutional neural network}
+	\end{table}
+
+     \begin{minted}[breaklines, tabsize=2]{rust}
+let net = SequentialBuilder::new()
+.watch(MetricsType::Accuracy)
+.push(ReshapeLayer::new(&[28 * 28], &[28, 28, 1])?)
+.push(ConvolutionalLayer::new(
+    (28, 28, 1),
+    (3, 3),
+    5,
+    InitializerType::He,
+))
+.push(
+ActivationLayer::from(Activation::ReLU)
+)
+.push(MaxPoolingLayer::new(
+    (26, 26, 5),
+    (2, 2)
+))
+.push(ReshapeLayer::new(&[13, 13, 5], &[13 * 13 * 5])?)
+.push(DenseLayer::new(
+    13 * 13 * 5,
+    100,
+    InitializerType::GlorotUniform,
+))
+.push(
+ActivationLayer::from(Activation::ReLU)
+)
+.push(DenseLayer::new(100, 10, InitializerType::GlorotUniform))
+.push(
+ActivationLayer::from(Activation::Softmax)
+);
+Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
+	\end{minted}
+    Here is the comparison between the training cost and the validation cost :
 	\begin{figure}[H]
 		\begin{center}
 			\includegraphics[width=\columnwidth]{images/cost_conv.png}
 		\end{center}
 		\caption{Training vs. Validation cost convolutional model}\label{fig:cost_conv}
 	\end{figure}
+
+    The training and validation cost decreases as the number of epochs increases but the gap between the training and validation cost indicates some degree of overfitting.
+    We reach a training cost of 0.09 and a validation cost of 0.22. 
 
 	\begin{figure}[H]
 		\begin{center}
@@ -740,34 +951,16 @@ Ok(net.compile(GradientDescent::new(0.04), CostFunction::CrossEntropy)?)
 		\caption{Training vs. Validation accuracy convolutional model}\label{fig:accuracy_conv}
 	\end{figure}
 
+    The training accuracy increases quickly and stabilizes around 0.97. The model quickly learned to correctly classify the training data.
+    The validation accuracy also increases but at a slower rate compared to the training accuracy. It stabilizes around 0.93.
+    So, the model has a good generalization but it seems to be overfitted.
+
 	\onecolumn
 	\section{GUI — Test the model}
 	The network shows some very great accuracy with the dataset itself, and we wanted to try by ourselves,
 	so we created a GUI that lets you draw into a canvas, and see what the model is guessing.
 	The canvas input image is reduced to a size of 28×28 like in the mnist dataset and is fed into the network.
-	We then display the probability distribution of the neural network output as a Bar graph.
-	Let's draw the digit two:
-	\begin{figure}[H]
-		\begin{center}
-			\includegraphics[width=\columnwidth]{images/2_original.png}
-		\end{center}
-		\caption{Hand-drawn digit 2}\label{fig:2_original}
-	\end{figure}
-	here is the reduced image (of size 28×28) given to the network
-	\begin{figure}[H]
-		\begin{center}
-			\includegraphics[width=\columnwidth]{images/2_reduced.png}
-		\end{center}
-		\caption{Reduced digit 2}\label{fig:2_reduced}
-	\end{figure}
-	and here is the final result
-	\begin{figure}[H]
-	\begin{center}
-		\includegraphics[width=\columnwidth]{images/2_final.png}
-	\end{center}
-	\caption{Graph for the neural network prediction}\label{fig_2_final}
-	\end{figure}
-	You can launch the demo and try it by yourself
+	You can launch the demo and try it by yourself.
 	\begin{enumerate}
 		\item install rust if you don't have it yet
 		\item Clone \href{https://github.com/dirdr/neural_network_from_scratch}{the crate}\\
@@ -785,20 +978,6 @@ RUST_LOG=debug cargo run --release -- gui --augment
 	The flag \textbf{a} applies data augmentation to the original mnist dataset, meaning that we slightly modify the original images,
 	applying small rotations/shifts to the digit. This makes the network more robust to recognize our canvas-drawn digits,
 	which are not exactly \textit{mass-centered} like the ones from the original dataset.
-
-	\subsection{Showcase}
-	\begin{figure}[H]
-	\begin{center}
-		\includegraphics[width=\columnwidth]{images/0_final.png}
-	\end{center}
-	\caption{Graph for the neural network prediction}
-	\end{figure}
-	\begin{figure}[H]
-	\begin{center}
-		\includegraphics[width=\columnwidth]{images/7_final.png}
-	\end{center}
-	\caption{Graph for the neural network prediction}
-	\end{figure}
 	\section{Conclusion}
 	This project of creating our own \textit{from scratch} library has brought us a lot of knowledge,
 	It has made us greatly understand the whole neural network process.
