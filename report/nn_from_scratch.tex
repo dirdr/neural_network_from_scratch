@@ -365,7 +365,7 @@
 	$$
     \frac{\partial C}{\partial W_{ij}} = \sum_{l=1}^{N} \frac{\partial L}{\partial Y_{lj}} \frac{\partial Y_{lj}}{\partial W_{ij}}
 	$$
-	because $W_{ij}$ is used in every example for calculating the $j^{th}$ column of the output matrix. Let's look at the formula for $Y_{lj}$ to get the derivative
+	because $W_{ij}$ is used in every example for calculating the $j^{th}$ column of the output matrix. Let's look at the formula for $Y_{lj}$ to get the derivative,
 	$$
 		Y_{lj} = X_{l1}W_{1j} + \cdots + X_{li}W_{ij} + \cdots + X_{lp}W_{pj} + b_{j}
 	$$
@@ -463,7 +463,7 @@
 	\theta := \theta - \eta \frac{\partial C}{\partial \theta}
 	$$
 
-        Updating the neural network layers parameters with this method  is known, in the Keras API, as the \textit{Stochastic gradient descent optimizer},
+        Updating the neural network layers parameters with this method is known, in the Keras API, as the \textit{Stochastic gradient descent optimizer},
 	but other ways of updating layer parameters exist, we call those alternative methods \textbf{optimizers}. One of the best ones is Adam \cite{kingma2017adam}
 
 	\subsection{Adam}
@@ -725,6 +725,66 @@ Ok(net.compile(GradientDescent::new(0.04), CostFunction::CrossEntropy)?)
 	which is not a \textit{state-of-the-art} accuracy, but is a good result.
 	\subsection{Convolutional multi-layer perceptron}
         Alexou fais les resultats !!
+
+	\onecolumn
+	\section{GUI — Test the model}
+	The network shows some very great accuracy with the dataset itself, and we wanted to try by ourselves,
+	so we created a GUI that lets you draw into a canvas, and see what the model is guessing.
+	The canvas input image is reduced to a size of 28×28 like in the mnist dataset and is fed into the network.
+	We then display the probability distribution of the neural network output as a Bar graph.
+	Let's draw the digit two:
+	\begin{figure}[H]
+		\begin{center}
+			\includegraphics[width=\columnwidth]{images/2_original.png}
+		\end{center}
+		\caption{Hand-drawn digit 2}\label{fig:2_original}
+	\end{figure}
+	here is the reduced image (of size 28×28) given to the network
+	\begin{figure}[H]
+		\begin{center}
+			\includegraphics[width=\columnwidth]{images/2_reduced.png}
+		\end{center}
+		\caption{Reduced digit 2}\label{fig:2_reduced}
+	\end{figure}
+	and here is the final result
+	\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=\columnwidth]{images/2_final.png}
+	\end{center}
+	\caption{Graph for the neural network prediction}\label{fig_2_final}
+	\end{figure}
+	You can launch the demo and try it by yourself
+	\begin{enumerate}
+		\item install rust if you don't have it yet
+		\item Clone \href{https://github.com/dirdr/neural_network_from_scratch}{the crate}\\
+\begin{minted}{bash}
+git clone https://github.com/dirdr/neural_network_from_scratch
+\end{minted}
+		\item launches the program in GUI mode : 
+\begin{minted}{bash}
+RUST_LOG=debug cargo run --release -- gui --augment
+\end{minted}
+	\end{enumerate}
+
+	You will need to have a full Rust toolchain installed for the program to run,
+	the GUI won't show at first because it takes some time for the model to train,  for the moment, we haven't implemented a mechanism to store our neural network.\\
+	The flag \textbf{a} applies data augmentation to the original mnist dataset, meaning that we slightly modify the original images,
+	applying small rotations/shifts to the digit. This makes the network more robust to recognize our canvas-drawn digits,
+	which are not exactly \textit{mass-centered} like the ones from the original dataset.
+
+	\subsection{Showcase}
+	\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=\columnwidth]{images/0_final.png}
+	\end{center}
+	\caption{Graph for the neural network prediction}
+	\end{figure}
+	\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=\columnwidth]{images/7_final.png}
+	\end{center}
+	\caption{Graph for the neural network prediction}
+	\end{figure}
 	\section{Conclusion}
 	This project of creating our own \textit{from scratch} library has brought us a lot of knowledge,
 	It has made us greatly understand the whole neural network process.
@@ -734,4 +794,3 @@ Ok(net.compile(GradientDescent::new(0.04), CostFunction::CrossEntropy)?)
 	\nocite{*}
 	\printbibliography
 \end{document}
-

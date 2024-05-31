@@ -55,13 +55,12 @@ fn build_conv_net() -> anyhow::Result<Sequential> {
 fn build_mlp_net() -> anyhow::Result<Sequential> {
     let net = SequentialBuilder::new()
         .push(DenseLayer::new(784, 256, InitializerType::He))
+        .push(DenseLayer::new(256, 128, InitializerType::He))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(256, 256, InitializerType::He))
-        .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(256, 10, InitializerType::He))
+        .push(DenseLayer::new(128, 10, InitializerType::He))
         .push(ActivationLayer::from(Activation::Softmax))
         .watch(MetricsType::Accuracy);
-    Ok(net.compile(GradientDescent::new(0.04), CostFunction::CrossEntropy)?)
+    Ok(net.compile(GradientDescent::new(0.1), CostFunction::CrossEntropy)?)
 }
 
 struct PreparedDataSet {
