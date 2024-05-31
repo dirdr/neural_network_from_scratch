@@ -26,29 +26,28 @@ pub fn get_neural_net(net_type: NetType) -> anyhow::Result<Sequential> {
 
 fn build_conv_net() -> anyhow::Result<Sequential> {
     let net = SequentialBuilder::new()
+        .watch(MetricsType::Accuracy)
         .push(ReshapeLayer::new(&[28 * 28], &[28, 28, 1])?)
         .push(ConvolutionalLayer::new(
             (28, 28, 1),
             (3, 3),
-            16,
+            5,
             InitializerType::He,
         ))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(MaxPoolingLayer::new((26, 26, 16), (2, 2)))
-        .push(ConvolutionalLayer::new(
-            (13, 13, 16),
-            (4, 4),
-            32,
-            InitializerType::He,
+        .push(MaxPoolingLayer::new(
+            (26, 26, 5),
+            (2, 2)
+        ))
+        .push(ReshapeLayer::new(&[13, 13, 5], &[13 * 13 * 5])?)
+        .push(DenseLayer::new(
+            13 * 13 * 5,
+            100,
+            InitializerType::GlorotUniform,
         ))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(MaxPoolingLayer::new((10, 10, 32), (2, 2)))
-        .push(ReshapeLayer::new(&[5, 5, 32], &[5 * 5 * 32])?)
-        .push(DenseLayer::new(5 * 5 * 32, 100, InitializerType::He))
-        .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(100, 10, InitializerType::He))
-        .push(ActivationLayer::from(Activation::Softmax))
-        .watch(MetricsType::Accuracy);
+        .push(DenseLayer::new(100, 10, InitializerType::GlorotUniform))
+        .push(ActivationLayer::from(Activation::Softmax));
     Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
 }
 
