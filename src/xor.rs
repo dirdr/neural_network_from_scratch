@@ -2,11 +2,11 @@ use log::info;
 use ndarray::{arr1, arr2, Array1, Array2, Axis};
 use nn_lib::{
     activation::Activation,
-    cost::CostFunction,
     initialization::InitializerType,
     layer::{ActivationLayer, DenseLayer},
-    sequential::{Sequential, SequentialBuilder},
+    losses::Loss,
     optimizer::GradientDescent,
+    sequential::{Sequential, SequentialBuilder},
 };
 
 pub fn build_neural_net() -> anyhow::Result<Sequential> {
@@ -15,7 +15,7 @@ pub fn build_neural_net() -> anyhow::Result<Sequential> {
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(8, 1, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::Sigmoid));
-    Ok(net.compile(GradientDescent::new(0.02), CostFunction::BinaryCrossEntropy)?)
+    Ok(net.compile(GradientDescent::new(0.02), Loss::BinaryCrossEntropy)?)
 }
 
 fn get_training_data() -> (Array2<f64>, Array1<f64>) {

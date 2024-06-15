@@ -1,13 +1,13 @@
 use ndarray::{ArrayD, Axis};
 
 #[derive(Copy, Clone)]
-pub enum CostFunction {
+pub enum Loss {
     CrossEntropy,
     BinaryCrossEntropy,
     Mse,
 }
 
-impl CostFunction {
+impl Loss {
     /// This crate don't use any kind of auto diff mechanism,
     /// thus, for function like BinaryCrossEntropy and CrossEntropy that need clamped output,
     /// we assume Sigmoid and Softmax respectively as the output activation layer.
@@ -22,11 +22,15 @@ impl CostFunction {
         }
     }
 
-    /// Compute the mean cost of the neural network with respect to a batch `output` and `observed`
+    /// Compute the mean loss of the neural network over a batch, by comparing the network `output` and the
+    /// `observed` (label) vector.
+    /// Both `output` and `observed` are given as a batch of shape (n, j).
+    /// Where `n` is the batch size and `j` is the vector size.
+    ///
     /// # Arguments
-    /// * `output` - a batch matrices (shape (n, j)) of output of the network
-    /// * `observed` - a one hotted encoded vector of observed values
-    pub fn cost(&self, output: &ArrayD<f64>, observed: &ArrayD<f64>) -> f64 {
+    /// * `output` - a batch matrice (shape (n, j)) of network outputs
+    /// * `observed` - a batch matrice (shape (n, j)) of one hot encoded vector of observed values
+    pub fn loss(&self, output: &ArrayD<f64>, observed: &ArrayD<f64>) -> f64 {
         let epsilon = 1e-7;
         let clipped_output = output.mapv(|x| x.clamp(epsilon, 1.0 - epsilon));
         match self {
@@ -53,18 +57,16 @@ impl CostFunction {
         }
     }
 
-    /// Return the gradient of cost function with respect to `output`
-    /// Note that this simple, from 'almost' scratch library don't use auto-differentiation
-    /// thus `BinaryCrossEntropy` calculation assume a Sigmoid activation as the layer.
-    /// `CrossEntropy` calculation assume a Softmax activation as the last
-    /// layer
-    /// # Arguments
-    /// * `output` - a batch matrices of neural network output (shape (n, j))
-    /// * `observed` - a batch matrices of observed values (shape (n, j))
+    /// Return the gradient of the loss function with respect to `output` batched matrice.
+    /// Note that we don't use thus :
+    /// `BinaryCrossEntropy` calculation assume Sigmoid activation as the last layer.
+    /// `CrossEntropy` calculation assume Softmax activation as the layer
     ///
-    /// Note that CrossEntropy and BinaryCrossEntropy assume one hot encoded vector for the
-    /// observed vector if the is multi-class.
-    pub fn cost_output_gradient(
+    /// # Arguments
+    /// * `output` - a batch matrices of neural network outputs (shape (n, j))
+    /// * `observed` - a batch matrices of observed values (shape (n, j))
+    /// where `n` is the batch_size and `j` is the vector size.
+    pub fn loss_output_gradient(
         &self,
         output: &ArrayD<f64>,
         observed: &ArrayD<f64>,

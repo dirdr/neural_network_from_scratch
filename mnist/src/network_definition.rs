@@ -2,9 +2,9 @@ use log::{debug, info, trace};
 use ndarray::{s, Array2, ArrayD};
 use nn_lib::{
     activation::Activation,
-    cost::CostFunction,
     initialization::InitializerType,
     layer::{ActivationLayer, ConvolutionalLayer, DenseLayer, MaxPoolingLayer, ReshapeLayer},
+    losses::Loss,
     metrics::MetricsType,
     optimizer::GradientDescent,
     sequential::{Sequential, SequentialBuilder},
@@ -35,10 +35,7 @@ fn build_conv_net() -> anyhow::Result<Sequential> {
             InitializerType::He,
         ))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(MaxPoolingLayer::new(
-            (26, 26, 5),
-            (2, 2)
-        ))
+        .push(MaxPoolingLayer::new((26, 26, 5), (2, 2)))
         .push(ReshapeLayer::new(&[13, 13, 5], &[13 * 13 * 5])?)
         .push(DenseLayer::new(
             13 * 13 * 5,
@@ -48,7 +45,7 @@ fn build_conv_net() -> anyhow::Result<Sequential> {
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(100, 10, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::Softmax));
-    Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
+    Ok(net.compile(GradientDescent::new(0.01), Loss::CrossEntropy)?)
 }
 
 fn build_mlp_net() -> anyhow::Result<Sequential> {
@@ -59,7 +56,7 @@ fn build_mlp_net() -> anyhow::Result<Sequential> {
         .push(DenseLayer::new(128, 10, InitializerType::He))
         .push(ActivationLayer::from(Activation::Softmax))
         .watch(MetricsType::Accuracy);
-    Ok(net.compile(GradientDescent::new(0.1), CostFunction::CrossEntropy)?)
+    Ok(net.compile(GradientDescent::new(0.1), Loss::CrossEntropy)?)
 }
 
 struct PreparedDataSet {
@@ -91,7 +88,6 @@ fn get_data(augment: bool) -> anyhow::Result<PreparedDataSet> {
 
     let (x_train, y_train) = prepare_data(dataset.training)?;
 
-    // split the training dataset into training / validation
     let (x_test, y_test) = prepare_data(dataset.test)?;
 
     let (x_validation, y_validation) = (

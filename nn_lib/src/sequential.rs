@@ -1,7 +1,7 @@
 use crate::{
     activation::Activation,
-    cost::CostFunction,
     layer::{ActivationLayer, ConvolutionalLayer, DenseLayer, Layer, LayerError},
+    losses::Loss,
     metrics::{Benchmark, History, MetricsType},
     optimizer::Optimizer,
 };
@@ -51,39 +51,34 @@ impl SequentialBuilder {
     pub fn compile(
         self,
         optimizer: impl Optimizer + 'static,
-        cost_function: CostFunction,
+        loss: Loss,
     ) -> Result<Sequential, NeuralNetworkError> {
-        // Check if the cost function is compatible with the last layer's activation function
-        if cost_function.is_output_dependant() {
-            self.validate_last_layer_activation(&cost_function)?;
+        // Check if the loss is compatible with the last layer's activation function
+        if loss.is_output_dependant() {
+            self.validate_last_layer_activation(&loss)?;
         }
 
         Ok(Sequential {
             layers: self.layers,
-            cost_function,
+            loss,
             optimizer: Box::new(optimizer),
             metrics: self.metrics,
         })
     }
 
-    /// Validates that the last layer's activation function is compatible with the given cost function.
-    fn validate_last_layer_activation(
-        &self,
-        cost_function: &CostFunction,
-    ) -> Result<(), NeuralNetworkError> {
+    /// Validates that the last layer's activation function is compatible with the given loss.
+    fn validate_last_layer_activation(&self, loss: &Loss) -> Result<(), NeuralNetworkError> {
         self.layers
             .last()
             .and_then(|layer| layer.as_any().downcast_ref::<ActivationLayer>())
             .map_or(
                 Err(NeuralNetworkError::MissingActivationLayer),
-                |activation_layer| match cost_function {
-                    CostFunction::Mse => Ok(()),
-                    CostFunction::CrossEntropy
-                        if activation_layer.activation == Activation::Softmax =>
-                    {
+                |activation_layer| match loss {
+                    Loss::Mse => Ok(()),
+                    Loss::CrossEntropy if activation_layer.activation == Activation::Softmax => {
                         Ok(())
                     }
-                    CostFunction::BinaryCrossEntropy
+                    Loss::BinaryCrossEntropy
                         if activation_layer.activation == Activation::Sigmoid =>
                     {
                         Ok(())
@@ -106,15 +101,15 @@ impl Default for SequentialBuilder {
 /// sequential order
 /// note that this crate dont use autodiff, so if you are planning to use a neural net architecture
 /// with cross entropy, or binary cross entropy, the network make and use the assumption of
-/// softmax, and sigmoid activation function respectively just before the cost function.
+/// softmax, and sigmoid activation function respectively just before the loss function.
 /// Thus you don't need to include it in the layers. However if you use any kind of independent
-/// cost function (like mse) you can include whatever activation function you want after the
+/// loss function (like mse) you can include whatever activation function you want after the
 /// output because the gradient calculation is independent of the last layer you choose.
-/// * cost_function - TODO
-/// * optimoizer - TODO
+/// * loss - TODO
+/// * optimizer - TODO
 pub struct Sequential {
     layers: Vec<Box<dyn Layer>>,
-    cost_function: CostFunction,
+    loss: Loss,
     optimizer: Box<dyn Optimizer>,
     metrics: Vec<MetricsType>,
 }
@@ -159,7 +154,7 @@ impl Sequential {
         for (batched_x, batched_y) in batches.into_iter() {
             let output = self.predict(&batched_x).unwrap();
 
-            let batch_loss = self.cost_function.cost(&output, &batched_y);
+            let batch_loss = self.loss.loss(&output, &batched_y);
 
             if !self.metrics.is_empty() {
                 bench.metrics.accumulate(&output, &batched_y);
@@ -222,9 +217,9 @@ impl Sequential {
 
         for (batched_x, batched_y) in batches.iter() {
             let output = self.feed_forward(batched_x)?;
-            let batch_loss = self.cost_function.cost(&output, batched_y);
+            let batch_loss = self.loss.loss(&output, batched_y);
 
-            // the cost function is already meant over the data point of the batch
+            // the loss is already meant over the data point of the batch
             total_loss += batch_loss;
 
             bench.metrics.accumulate(&output, batched_y);
@@ -269,14 +264,12 @@ impl Sequential {
         net_output: &ArrayD<f64>,
         observed: &ArrayD<f64>,
     ) -> Result<(), LayerError> {
-        let mut grad = self
-            .cost_function
-            .cost_output_gradient(net_output, observed);
+        let mut grad = self.loss.loss_output_gradient(net_output, observed);
 
-        // if the cost function is dependant of the last layer, the gradient calculation
+        // if the loss is dependant of the last layer, the gradient calculation
         // have been done with respect to the net logits directly, thus skip the last layer
         // in the gradients backpropagation
-        let skip_layer = if self.cost_function.is_output_dependant() {
+        let skip_layer = if self.loss.is_output_dependant() {
             1
         } else {
             0
@@ -307,7 +300,7 @@ pub enum NeuralNetworkError {
 
     #[error(
         "Invalid output activation layer,
-        see CostFunction::output_dependant for detailed explanation"
+        see Loss::output_dependant for detailed explanation"
     )]
     WrongOutputActivationLayer,
 }

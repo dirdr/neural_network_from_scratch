@@ -36,7 +36,7 @@ impl Activation {
                     let max_logit = row_as_view1.fold(f64::NEG_INFINITY, |max, &val| max.max(val));
                     let exps: Array1<f64> =
                         row_as_view1.mapv(|x| f64::exp(x - max_logit)).to_owned();
-                    let sum_exps: f64 = exps.sum() + 1e-10; // to avoid division by zero
+                    let sum_exps: f64 = exps.sum() + 1e-10;
                     let softmax_row: Array1<f64> = exps.mapv(|x| x / sum_exps);
                     row.assign(&softmax_row);
                 }
