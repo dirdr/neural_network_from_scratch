@@ -1,5 +1,5 @@
 # About
-This repository hold multiple crates, among them [./nn_lib] which is the main neural network library.
+This repository hold multiple crates, among them [nn_lib](./nn_lib/) which is the main neural network library.
 
 Before we decided to improve the neural network library by adding more features, this was a school project,
 you check out the [report](./report/nn_from_scratch.pdf) (pdf format) we wrote explaining the basic structure of the library and the maths behind our implementation.
