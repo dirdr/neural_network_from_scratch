@@ -1,9 +1,16 @@
 # About
-This simple project aims to create a simple neural network from scratch, and train it with the MNIST database, to make him recongnise handwritten digits.
+This repository hold multiple crates, among them [./nn_lib] which is the main neural network library.
+
+Before we decided to improve the neural network library by adding more features, this was a school project,
+you check out the [report](./report/nn_from_scratch.pdf) (pdf format) we wrote explaining the basic structure of the library and the maths behind our implementation.
+The [latex sources](./report/) of the report is also avaible.
+
+This application, using our library, serve as an entrypoint for our school project which was to solve the mnist dataset.
+There are two mode, `benchmark` and `gui`, the first one give metrics and loss for either mnist or xor, and the second one is a drawing GUI around the mnist dataset.
 
 # Exemple
-Launch the gui with data augmentation:
-```s
+Launch the mnist gui with data augmentation:
+```sh
 RUST_LOG=trace cargo run --release -- gui --augment
 ```
 
@@ -23,8 +30,8 @@ Options:
   -V, --version  Print version
  ```
 
-## Performance benchmark
-The project can be run to benchmark performance, see the help command
+## Network performance benchmark
+The project can be run to benchmark the network performances, see the help command
 
 ```txt
 Run benchmarks
@@ -39,7 +46,7 @@ Options:
 ```
 
 ## Interactive usage
-You can also play with an interactive gui, drawing your own number and see what the trained model guess.
+You can also play with an interactive gui for the mnist exemple, drawing your own number and see what the trained model guess.
 
 ```txt
 Run in GUI mode
@@ -50,15 +57,3 @@ Options:
   -a, --augment
   -h, --help     Print help
 ```
-
-# Dataset
-
-the dataset used is the **MNIST Databse** of handwritten digits containing a training set of 60k samples, and a testing set of 10k samples.\
-the files are stored inside the [resources folder](./resources/), there is 4 files
-
-- [training set images](./resources/train-images-idx3-ubyte.gz)
-- [training set labels](./resources/train-images-idx1-ubyte.gz)
-- [test set images](./resources/t10k-images-idx3-ubyte.gz)
-- [test set labels](./resources/train-images-idx1-ubyte.gz)
-
-  At the time we wrote the program, the files in the [official respository](http://yann.lecun.com/exdb/mnist/) where unavaible, we downloaded the version from [this mirror](https://github.com/mkolod/MNIST).
