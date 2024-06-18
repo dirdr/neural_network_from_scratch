@@ -4,7 +4,7 @@ There are two mode, `benchmark` and `gui`, the first one give metrics and loss f
 
 Before we decided to improve the neural network library by adding more features, this was a school project,
 you check out the [report](./report/nn_from_scratch.pdf) (pdf format) we wrote explaining the basic structure of the library and the maths behind our implementation.
-The [latex sources](./report/) of the report is also avaible.
+The [latex sources](./report/) of the report are also available
 
 # Exemple
 Launch the mnist gui with data augmentation:
