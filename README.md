@@ -1,12 +1,10 @@
 # About
-This repository hold multiple crates, among them [nn_lib](./nn_lib/) which is the main neural network library.
+This project is build around the [nn_lib](./nn_lib/) which a neural network library, and serve as an entrypoint for a school project, which was to solve the mnist dataset.
+There are two mode, `benchmark` and `gui`, the first one give metrics and loss for either mnist or xor, and the second one is a drawing GUI around the mnist dataset.
 
 Before we decided to improve the neural network library by adding more features, this was a school project,
 you check out the [report](./report/nn_from_scratch.pdf) (pdf format) we wrote explaining the basic structure of the library and the maths behind our implementation.
 The [latex sources](./report/) of the report is also avaible.
-
-This application, using our library, serve as an entrypoint for our school project which was to solve the mnist dataset.
-There are two mode, `benchmark` and `gui`, the first one give metrics and loss for either mnist or xor, and the second one is a drawing GUI around the mnist dataset.
 
 # Exemple
 Launch the mnist gui with data augmentation:
