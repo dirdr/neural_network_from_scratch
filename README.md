@@ -1,5 +1,5 @@
 # About
-This project is build around the [nn_lib](./nn_lib/) which is a very basic _'from scratch'_ neural network library, and serve as an entrypoint for a school project, which was to solve the mnist dataset.
+This project is build around [nn_lib](./nn_lib/) which is a very basic _'from scratch'_ neural network library, and serve as an entrypoint for a school project, which was to solve the mnist dataset.
 There are two mode, `benchmark` and `gui`, the first one give metrics and loss for either mnist or xor, and the second one is a drawing GUI around the mnist dataset.
 
 Before we decided to improve the neural network library by adding more features, this was a school project,
