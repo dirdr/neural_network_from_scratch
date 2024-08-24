@@ -62,6 +62,7 @@ fn build_mlp_net() -> anyhow::Result<Sequential> {
     Ok(net.compile(GradientDescent::new(0.1), CostFunction::CrossEntropy)?)
 }
 
+#[derive(PartialEq, Debug, Clone, Default)]
 struct PreparedDataSet {
     train: (ArrayD<f64>, ArrayD<f64>),
     validation: (ArrayD<f64>, ArrayD<f64>),

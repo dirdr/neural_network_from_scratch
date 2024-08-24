@@ -11,6 +11,7 @@ use crate::utils::{decompress_gz_file, read_idx_data};
 /// for the images, dimensions are 1: number of images, 2: number of raw, 3: number of col
 /// for the labels, dimension are 1: number of labels
 /// images and labels are organized sequentially with images[i] associated with the label[i]
+#[derive(Debug, Clone, PartialEq, Default, Eq, Hash)]
 pub struct MnistData {
     // [60000, 28, 28], [60000]
     pub training: (ArrayD<u8>, ArrayD<u8>),

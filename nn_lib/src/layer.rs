@@ -37,6 +37,7 @@ pub trait Trainable {
     fn get_gradients(&self) -> Vec<ArrayD<f64>>;
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct DenseLayer {
     weights: ArrayD<f64>,
     bias: ArrayD<f64>,
@@ -174,6 +175,7 @@ impl Trainable for DenseLayer {
 }
 
 /// The `ActivationLayer` apply a activation function to it's input node to yield the output nodes.
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ActivationLayer {
     pub activation: Activation,
     pub input: Option<ArrayD<f64>>,
@@ -230,6 +232,7 @@ impl Layer for ActivationLayer {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ConvolutionalLayer {
     kernels: ArrayD<f64>,
     bias: ArrayD<f64>,
@@ -563,6 +566,7 @@ impl Trainable for ConvolutionalLayer {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct MaxPoolingLayer {
     input: Option<ArrayD<f64>>,
     max_indices: Option<ArrayD<usize>>,
@@ -712,6 +716,7 @@ impl Layer for MaxPoolingLayer {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ReshapeLayer {
     input: Option<ArrayD<f64>>,
     input_shape: IxDyn,

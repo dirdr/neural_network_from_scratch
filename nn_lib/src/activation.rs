@@ -7,8 +7,9 @@ fn check_nan(array: &ArrayD<f64>, operation: &str) {
     }
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Clone, Default, Copy, PartialOrd, Ord, Hash)]
 pub enum Activation {
+    #[default]
     ReLU,
     Tanh,
     Sigmoid,

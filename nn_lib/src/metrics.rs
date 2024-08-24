@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use ndarray::{ArrayD, Axis};
 use ndarray_stats::QuantileExt;
 
+#[derive(Clone, PartialEq, Debug, Default)]
 pub struct History {
     pub history: Vec<Benchmark>,
 }
@@ -24,12 +25,7 @@ impl History {
     }
 }
 
-impl Default for History {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
+#[derive(Clone, PartialEq, Debug, Default)]
 pub struct Benchmark {
     pub metrics: Metrics,
     pub loss: f64,
@@ -44,13 +40,15 @@ impl Benchmark {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default, PartialOrd, Ord)]
 pub enum MetricsType {
+    #[default]
     Accuracy,
     Recall,
     Precision,
 }
 
+#[derive(Clone, PartialEq, Debug, Default)]
 pub struct Metrics {
     pub metrics: HashMap<MetricsType, f64>,
 }

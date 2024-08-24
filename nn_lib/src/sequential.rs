@@ -11,6 +11,7 @@ use ndarray_rand::rand::seq::SliceRandom;
 use ndarray_rand::rand::thread_rng;
 use thiserror::Error;
 
+#[derive(Default)]
 pub struct SequentialBuilder {
     layers: Vec<Box<dyn Layer>>,
     metrics: Vec<MetricsType>,
@@ -91,12 +92,6 @@ impl SequentialBuilder {
                     _ => Err(NeuralNetworkError::WrongOutputActivationLayer),
                 },
             )
-    }
-}
-
-impl Default for SequentialBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

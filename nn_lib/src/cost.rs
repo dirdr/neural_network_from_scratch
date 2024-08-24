@@ -1,7 +1,8 @@
 use ndarray::{ArrayD, Axis};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug, Default)]
 pub enum CostFunction {
+    #[default]
     CrossEntropy,
     BinaryCrossEntropy,
     Mse,

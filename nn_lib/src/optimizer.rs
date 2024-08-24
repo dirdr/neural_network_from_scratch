@@ -5,7 +5,7 @@ pub trait Optimizer: Sync + Send {
     fn step(&mut self, layer: &mut dyn Trainable);
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Default)]
 pub struct GradientDescent {
     learning_rate: f64,
 }
