@@ -14,20 +14,82 @@ async fn main() -> anyhow::Result<()> {
 
     match &cli.mode {
         Mode::Websocket(options) => {
-            let mut multilayer_perceptron = mnist::get_neural_net(NetType::Mlp)?;
+            let mlp_model_path = "/app/models/mlp_model.json";
+            let cnn_model_path = "/app/models/cnn_model.json";
+            
+            // Try to load existing MLP model or create/train a new one
+            let mut multilayer_perceptron = if std::path::Path::new(mlp_model_path).exists() {
+                println!("Loading existing MLP model...");
+                match nn_lib::sequential::Sequential::load(mlp_model_path) {
+                    Ok(builder) => builder.build(
+                        nn_lib::cost::CostFunction::CrossEntropy,
+                        nn_lib::optimizer::GradientDescent::new(0.01)
+                    )?,
+                    Err(e) => {
+                        println!("Error loading MLP model: {}, training new one...", e);
+                        let mut net = mnist::get_neural_net(NetType::Mlp)?;
+                        mnist::start(&mut net, 128, 10, false)?;
+                        // Save the trained model
+                        std::fs::create_dir_all("/app/models").ok();
+                        if let Err(e) = net.save(mlp_model_path) {
+                            println!("Warning: Could not save MLP model: {}", e);
+                        } else {
+                            println!("MLP model saved to {}", mlp_model_path);
+                        }
+                        net
+                    }
+                }
+            } else {
+                println!("Training new MLP model...");
+                let mut net = mnist::get_neural_net(NetType::Mlp)?;
+                mnist::start(&mut net, 128, 10, false)?;
+                // Save the trained model
+                std::fs::create_dir_all("/app/models").ok();
+                if let Err(e) = net.save(mlp_model_path) {
+                    println!("Warning: Could not save MLP model: {}", e);
+                } else {
+                    println!("MLP model saved to {}", mlp_model_path);
+                }
+                net
+            };
             
             let mut convolutional_perceptron = if options.with_conv {
-                Some(mnist::get_neural_net(NetType::Conv)?)
+                // Try to load existing CNN model or create/train a new one
+                if std::path::Path::new(cnn_model_path).exists() {
+                    println!("Loading existing CNN model...");
+                    match nn_lib::sequential::Sequential::load(cnn_model_path) {
+                        Ok(builder) => Some(builder.build(
+                            nn_lib::cost::CostFunction::CrossEntropy,
+                            nn_lib::optimizer::GradientDescent::new(0.01)
+                        )?),
+                        Err(e) => {
+                            println!("Error loading CNN model: {}, training new one...", e);
+                            let mut net = mnist::get_neural_net(NetType::Conv)?;
+                            mnist::start(&mut net, 128, 10, false)?;
+                            // Save the trained model
+                            if let Err(e) = net.save(cnn_model_path) {
+                                println!("Warning: Could not save CNN model: {}", e);
+                            } else {
+                                println!("CNN model saved to {}", cnn_model_path);
+                            }
+                            Some(net)
+                        }
+                    }
+                } else {
+                    println!("Training new CNN model...");
+                    let mut net = mnist::get_neural_net(NetType::Conv)?;
+                    mnist::start(&mut net, 128, 10, false)?;
+                    // Save the trained model
+                    if let Err(e) = net.save(cnn_model_path) {
+                        println!("Warning: Could not save CNN model: {}", e);
+                    } else {
+                        println!("CNN model saved to {}", cnn_model_path);
+                    }
+                    Some(net)
+                }
             } else {
                 None
             };
-
-            // Train the models
-            mnist::start(&mut multilayer_perceptron, 128, 10, false)?;
-            
-            if let Some(ref mut cnn) = convolutional_perceptron {
-                mnist::start(cnn, 128, 10, false)?;
-            }
 
             // Create and start WebSocket server
             let server = WebSocketServer::new(multilayer_perceptron, convolutional_perceptron);

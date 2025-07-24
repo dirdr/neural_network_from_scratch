@@ -10,6 +10,8 @@ use ndarray::{ArrayD, Axis};
 use ndarray_rand::rand::seq::SliceRandom;
 use ndarray_rand::rand::thread_rng;
 use thiserror::Error;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 #[derive(Default)]
 pub struct SequentialBuilder {
@@ -305,4 +307,132 @@ pub enum NeuralNetworkError {
         see CostFunction::output_dependant for detailed explanation"
     )]
     WrongOutputActivationLayer,
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
+
+    #[error("Layer error: {0}")]
+    Layer(#[from] crate::layer::LayerError),
+}
+
+// Serializable structures to represent model state
+#[derive(Serialize, Deserialize)]
+pub struct SerializableDenseLayer {
+    pub weights: Vec<Vec<f64>>,
+    pub bias: Vec<f64>,
+    pub input_size: usize,
+    pub output_size: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SerializableActivationLayer {
+    pub activation: Activation,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SerializableConvLayer {
+    pub kernels: Vec<Vec<Vec<Vec<f64>>>>,
+    pub biases: Vec<f64>,
+    pub input_depth: usize,
+    pub output_depth: usize,
+    pub kernel_size: usize,
+    pub stride: usize,
+    pub padding: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum SerializableLayer {
+    Dense(SerializableDenseLayer),
+    Activation(SerializableActivationLayer),
+    Conv(SerializableConvLayer),
+    MaxPool { kernel_size: usize, stride: usize },
+    Reshape { shape: Vec<usize> },
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SerializableModel {
+    pub layers: Vec<SerializableLayer>,
+    pub cost_function: CostFunction,
+    pub learning_rate: f64,
+}
+
+impl Sequential {
+    /// Save the model to a JSON file
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), NeuralNetworkError> {
+        let model = self.to_serializable()?;
+        let json = serde_json::to_string_pretty(&model)?;
+        std::fs::write(path, json)?;
+        Ok(())
+    }
+
+    /// Load a model from a JSON file
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<SequentialBuilder, NeuralNetworkError> {
+        let json = std::fs::read_to_string(path)?;
+        let model: SerializableModel = serde_json::from_str(&json)?;
+        Ok(model.to_sequential_builder()?)
+    }
+
+    fn to_serializable(&self) -> Result<SerializableModel, NeuralNetworkError> {
+        let mut serializable_layers = Vec::new();
+        
+        for layer in &self.layers {
+            if let Some(dense) = layer.as_any().downcast_ref::<DenseLayer>() {
+                serializable_layers.push(SerializableLayer::Dense(dense.to_serializable()?));
+            } else if let Some(activation) = layer.as_any().downcast_ref::<ActivationLayer>() {
+                serializable_layers.push(SerializableLayer::Activation(activation.to_serializable()));
+            } else if let Some(conv) = layer.as_any().downcast_ref::<ConvolutionalLayer>() {
+                serializable_layers.push(SerializableLayer::Conv(conv.to_serializable()?));
+            }
+        }
+
+        Ok(SerializableModel {
+            layers: serializable_layers,
+            cost_function: self.cost_function,
+            learning_rate: self.optimizer.get_learning_rate(),
+        })
+    }
+}
+
+impl SerializableModel {
+    fn to_sequential_builder(self) -> Result<SequentialBuilder, NeuralNetworkError> {
+        use crate::initialization::InitializerType;
+        use crate::layer::{MaxPoolingLayer, ReshapeLayer};
+        
+        let mut builder = SequentialBuilder::new();
+        
+        for layer in self.layers {
+            match layer {
+                SerializableLayer::Dense(dense) => {
+                    let mut dense_layer = DenseLayer::new(
+                        dense.input_size,
+                        dense.output_size,
+                        InitializerType::Xavier,
+                    );
+                    dense_layer.set_weights_and_bias(dense.weights, dense.bias)?;
+                    builder = builder.push(dense_layer);
+                }
+                SerializableLayer::Activation(activation) => {
+                    builder = builder.push(ActivationLayer::new(activation.activation));
+                }
+                SerializableLayer::Conv(conv) => {
+                    // Convolutional layers need to be reconstructed with proper signatures
+                    // For simplicity, we skip conv layers in loading for now
+                    return Err(NeuralNetworkError::Layer(crate::layer::LayerError::SerializationError));
+                }
+                SerializableLayer::MaxPool { kernel_size, stride } => {
+                    // MaxPool layers require input size information
+                    // For simplicity, we skip maxpool layers in loading for now
+                    return Err(NeuralNetworkError::Layer(crate::layer::LayerError::SerializationError));
+                }
+                SerializableLayer::Reshape { shape } => {
+                    builder = builder.push(ReshapeLayer::new_simple(shape));
+                }
+            }
+        }
+        
+        Ok(builder)
+    }
 }

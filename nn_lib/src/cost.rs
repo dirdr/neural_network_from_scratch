@@ -1,6 +1,7 @@
 use ndarray::{ArrayD, Axis};
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug, Default, Serialize, Deserialize)]
 pub enum CostFunction {
     #[default]
     CrossEntropy,

@@ -1,11 +1,12 @@
 use crate::layer::Trainable;
+use serde::{Deserialize, Serialize};
 
 pub trait Optimizer: Sync + Send {
     fn get_learning_rate(&self) -> f64;
     fn step(&mut self, layer: &mut dyn Trainable);
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Default, Serialize, Deserialize)]
 pub struct GradientDescent {
     learning_rate: f64,
 }

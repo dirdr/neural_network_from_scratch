@@ -1,5 +1,6 @@
 use log::error;
 use ndarray::{Array1, ArrayD, ArrayView1, Axis};
+use serde::{Deserialize, Serialize};
 
 fn check_nan(array: &ArrayD<f64>, operation: &str) {
     if array.iter().any(|&x| x.is_nan()) {
@@ -7,7 +8,7 @@ fn check_nan(array: &ArrayD<f64>, operation: &str) {
     }
 }
 
-#[derive(Eq, PartialEq, Debug, Clone, Default, Copy, PartialOrd, Ord, Hash)]
+#[derive(Eq, PartialEq, Debug, Clone, Default, Copy, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Activation {
     #[default]
     ReLU,

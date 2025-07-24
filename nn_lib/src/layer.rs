@@ -2,6 +2,7 @@ use ndarray::{linalg, Array2, ArrayD, Axis, Dimension, IxDyn, s, ShapeError};
 use num_traits::zero;
 use std::any::Any;
 use thiserror::Error;
+use serde::{Deserialize, Serialize};
 
 use crate::{activation::Activation, initialization::InitializerType};
 
@@ -752,7 +753,7 @@ impl Layer for ReshapeLayer {
         shape.push(batch_size);
         shape.extend_from_slice(self.output_shape.as_array_view().as_slice().unwrap());
 
-        if input.shape().iter().product::<usize>() != shape.iter().product() {
+        if input.shape().iter().product::<usize>() != shape.iter().product::<usize>() {
             return Err(LayerError::ReshapeError(ShapeError::from_kind(
                 ndarray::ErrorKind::IncompatibleShape,
             )));
@@ -768,7 +769,7 @@ impl Layer for ReshapeLayer {
         let mut shape: Vec<usize> = Vec::with_capacity(self.output_shape.ndim() + 1);
         shape.push(batch_size);
         shape.extend_from_slice(self.input_shape.as_array_view().as_slice().unwrap());
-        if output_gradient.shape().iter().product::<usize>() != shape.iter().product() {
+        if output_gradient.shape().iter().product::<usize>() != shape.iter().product::<usize>() {
             return Err(LayerError::ReshapeError(ShapeError::from_kind(
                 ndarray::ErrorKind::IncompatibleShape,
             )));
@@ -795,4 +796,121 @@ pub enum LayerError {
 
     #[error("Dimension don't match")]
     DimensionMismatch,
+
+    #[error("Serialization error")]
+    SerializationError,
+}
+
+// Implementations for layer serialization
+impl DenseLayer {
+    pub fn to_serializable(&self) -> Result<crate::sequential::SerializableDenseLayer, LayerError> {
+        let weights_2d = self.weights.view().into_shape((self.input_size, self.output_size))
+            .map_err(|_| LayerError::SerializationError)?;
+        let weights = weights_2d.outer_iter()
+            .map(|row| row.to_vec())
+            .collect();
+        
+        let bias = self.bias.into_raw_vec();
+        
+        Ok(crate::sequential::SerializableDenseLayer {
+            weights,
+            bias,
+            input_size: self.input_size,
+            output_size: self.output_size,
+        })
+    }
+
+    pub fn set_weights_and_bias(&mut self, weights: Vec<Vec<f64>>, bias: Vec<f64>) -> Result<(), LayerError> {
+        use ndarray::Array2;
+        
+        if weights.len() != self.input_size || weights[0].len() != self.output_size {
+            return Err(LayerError::DimensionMismatch);
+        }
+        if bias.len() != self.output_size {
+            return Err(LayerError::DimensionMismatch);
+        }
+        
+        let weights_array = Array2::from_shape_fn((self.input_size, self.output_size), |(i, j)| weights[i][j]);
+        self.weights = weights_array.into_dyn();
+        self.bias = ArrayD::from_shape_vec(vec![self.output_size], bias)
+            .map_err(|_| LayerError::SerializationError)?;
+        
+        Ok(())
+    }
+}
+
+impl ActivationLayer {
+    pub fn to_serializable(&self) -> crate::sequential::SerializableActivationLayer {
+        crate::sequential::SerializableActivationLayer {
+            activation: self.activation,
+        }
+    }
+}
+
+impl ConvolutionalLayer {
+    pub fn to_serializable(&self) -> Result<crate::sequential::SerializableConvLayer, LayerError> {
+        let kernels = self.kernels.iter()
+            .map(|kernel_3d| {
+                kernel_3d.outer_iter()
+                    .map(|kernel_2d| {
+                        kernel_2d.outer_iter()
+                            .map(|row| row.to_vec())
+                            .collect()
+                    })
+                    .collect()
+            })
+            .collect();
+        
+        let biases = self.biases.into_raw_vec();
+        
+        Ok(crate::sequential::SerializableConvLayer {
+            kernels,
+            biases,
+            input_depth: self.input_depth,  
+            output_depth: self.output_depth,
+            kernel_size: self.kernel_size,
+            stride: self.stride,
+            padding: self.padding,
+        })
+    }
+
+    pub fn set_kernels_and_biases(&mut self, kernels: Vec<Vec<Vec<Vec<f64>>>>, biases: Vec<f64>) -> Result<(), LayerError> {
+        use ndarray::Array3;
+        
+        if kernels.len() != self.output_depth {
+            return Err(LayerError::DimensionMismatch);
+        }
+        if biases.len() != self.output_depth {
+            return Err(LayerError::DimensionMismatch);
+        }
+        
+        let mut new_kernels = Vec::with_capacity(self.output_depth);
+        for (i, kernel_4d) in kernels.into_iter().enumerate() {
+            if kernel_4d.len() != self.input_depth {
+                return Err(LayerError::DimensionMismatch);
+            }
+            
+            let kernel_3d = Array3::from_shape_fn(
+                (self.input_depth, self.kernel_size, self.kernel_size),
+                |(d, h, w)| kernel_4d[d][h][w]
+            );
+            new_kernels.push(kernel_3d);
+        }
+        
+        self.kernels = new_kernels;
+        self.biases = ArrayD::from_shape_vec(vec![self.output_depth], biases)
+            .map_err(|_| LayerError::SerializationError)?;
+        
+        Ok(())
+    }
+}
+
+impl ReshapeLayer {
+    pub fn new_simple(shape: Vec<usize>) -> Self {
+        Self {
+            input: None,
+            input_shape: IxDyn(&[]),
+            output_shape: IxDyn(&shape),
+        }
+    }
 }

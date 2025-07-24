@@ -27,8 +27,14 @@ COPY --from=builder /app/target/release/nn_from_scratch /app/nn_from_scratch
 # Copy the MNIST resources
 COPY --from=builder /app/mnist/resources /app/mnist/resources
 
+# Create directory for persistent models
+RUN mkdir -p /app/models
+
 # Expose the WebSocket port
 EXPOSE 8080
+
+# Volume for persistent model storage
+VOLUME ["/app/models"]
 
 # Set environment variables for better logging
 ENV RUST_LOG=info

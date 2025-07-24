@@ -1000,6 +1000,8 @@ dependencies = [
  "pretty_env_logger",
  "rand",
  "rayon",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 
