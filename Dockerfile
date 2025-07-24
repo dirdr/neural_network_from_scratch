@@ -1,5 +1,5 @@
 # Use official Rust image as build stage
-FROM rust:1.75 as builder
+FROM rust:1.82 as builder
 
 WORKDIR /app
 
