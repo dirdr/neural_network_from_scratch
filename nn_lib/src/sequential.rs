@@ -399,7 +399,7 @@ impl Sequential {
 impl SerializableModel {
     fn to_sequential_builder(self) -> Result<SequentialBuilder, NeuralNetworkError> {
         use crate::initialization::InitializerType;
-        use crate::layer::{MaxPoolingLayer, ReshapeLayer};
+        use crate::layer::{ReshapeLayer};
         
         let mut builder = SequentialBuilder::new();
         
@@ -409,13 +409,13 @@ impl SerializableModel {
                     let mut dense_layer = DenseLayer::new(
                         dense.input_size,
                         dense.output_size,
-                        InitializerType::Xavier,
+                        InitializerType::He,
                     );
                     dense_layer.set_weights_and_bias(dense.weights, dense.bias)?;
                     builder = builder.push(dense_layer);
                 }
                 SerializableLayer::Activation(activation) => {
-                    builder = builder.push(ActivationLayer::new(activation.activation));
+                    builder = builder.push(ActivationLayer::from(activation.activation));
                 }
                 SerializableLayer::Conv(conv) => {
                     // Convolutional layers need to be reconstructed with proper signatures

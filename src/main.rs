@@ -21,9 +21,9 @@ async fn main() -> anyhow::Result<()> {
             let mut multilayer_perceptron = if std::path::Path::new(mlp_model_path).exists() {
                 println!("Loading existing MLP model...");
                 match nn_lib::sequential::Sequential::load(mlp_model_path) {
-                    Ok(builder) => builder.build(
-                        nn_lib::cost::CostFunction::CrossEntropy,
-                        nn_lib::optimizer::GradientDescent::new(0.01)
+                    Ok(builder) => builder.compile(
+                        nn_lib::optimizer::GradientDescent::new(0.01),
+                        nn_lib::cost::CostFunction::CrossEntropy
                     )?,
                     Err(e) => {
                         println!("Error loading MLP model: {}, training new one...", e);
@@ -58,9 +58,9 @@ async fn main() -> anyhow::Result<()> {
                 if std::path::Path::new(cnn_model_path).exists() {
                     println!("Loading existing CNN model...");
                     match nn_lib::sequential::Sequential::load(cnn_model_path) {
-                        Ok(builder) => Some(builder.build(
-                            nn_lib::cost::CostFunction::CrossEntropy,
-                            nn_lib::optimizer::GradientDescent::new(0.01)
+                        Ok(builder) => Some(builder.compile(
+                            nn_lib::optimizer::GradientDescent::new(0.01),
+                            nn_lib::cost::CostFunction::CrossEntropy
                         )?),
                         Err(e) => {
                             println!("Error loading CNN model: {}, training new one...", e);
