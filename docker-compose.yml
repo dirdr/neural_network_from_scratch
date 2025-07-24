@@ -55,11 +55,7 @@ services:
       # Service configuration
       - traefik.http.services.neural-network.loadbalancer.server.port=8080
       
-      # WebSocket support middleware
-      - traefik.http.routers.neural-network.middlewares=websocket-headers
-      - traefik.http.routers.neural-network-local.middlewares=websocket-headers
-      - traefik.http.middlewares.websocket-headers.headers.customrequestheaders.Connection=Upgrade
-      - traefik.http.middlewares.websocket-headers.headers.customrequestheaders.Upgrade=websocket
+      # WebSocket support - remove middleware, Traefik handles WebSocket upgrades automatically
       
       # HTTPS redirect middleware
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
