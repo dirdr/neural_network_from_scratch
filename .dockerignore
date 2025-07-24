@@ -1,0 +1,10 @@
+target/
+.git/
+.gitignore
+README.md
+docker-compose.yml
+Dockerfile
+CLAUDE.md
+report/
+.env
+.env.local

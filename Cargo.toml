@@ -13,12 +13,14 @@ nn_lib = {path = "./nn_lib/"}
 mnist = {path = "./mnist/"}
 anyhow = "1.0.83"
 log = "0.4.21"
-egui = "0.27.2"
-eframe = "0.27.2"
 image = "0.25.1"
 # ndarray = {version = "0.15.6", features = ["matrixmultiply-threading", "rayon", "blas"]}
 ndarray = {version = "0.15.6", features = ["matrixmultiply-threading", "rayon"]}
-egui_plot = "0.27.2"
+tokio = { version = "1.0", features = ["full"] }
+tokio-tungstenite = "0.23"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+futures-util = "0.3"
 
 [profile.release]
 debug = true

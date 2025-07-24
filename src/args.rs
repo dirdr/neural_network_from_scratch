@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
 
-#[derive(Parser, Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Default)]
+#[derive(Parser, Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Default)]
 #[command(
     name = "neural network from scratch",
     about = "A simple neural network library written in rust",
@@ -12,10 +12,10 @@ pub struct Arguments {
     pub mode: Mode,
 }
 
-#[derive(Subcommand, Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Subcommand, Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum Mode {
-    /// Run in GUI mode
-    Gui(GuiOptions),
+    /// Run WebSocket server mode
+    Websocket(WebSocketOptions),
 
     /// Run benchmarks
     Benchmark(BenchmarkOptions),
@@ -23,18 +23,10 @@ pub enum Mode {
 
 impl Default for Mode {
     fn default() -> Self {
-        Mode::Gui(GuiOptions::default())
+        Mode::Websocket(WebSocketOptions::default())
     }
 }
 
-#[derive(Parser, Debug, Clone, Hash, PartialEq, Default, PartialOrd, Copy, Ord, Eq)]
-pub struct GuiOptions {
-    #[arg(short, long, default_value = "false")]
-    pub augment: bool,
-
-    #[arg(short, long, default_value = "false")]
-    pub with_conv: bool,
-}
 
 #[derive(Parser, Debug, Clone, PartialEq, Default, PartialOrd, Copy, Ord, Eq, Hash)]
 pub struct BenchmarkOptions {
@@ -55,6 +47,15 @@ pub enum ArgsNetType {
     Mlp,
     #[clap(alias = "conv")]
     Conv,
+}
+
+#[derive(Parser, Debug, Clone, Hash, PartialEq, Default, PartialOrd, Eq, Ord)]
+pub struct WebSocketOptions {
+    #[arg(short, long, default_value = "127.0.0.1:8080")]
+    pub address: String,
+
+    #[arg(short, long, default_value = "false")]
+    pub with_conv: bool,
 }
 
 #[derive(Copy, Clone, ValueEnum, Debug, PartialOrd, Eq, PartialEq, Ord, Default, Hash)]

@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  neural-network:
+    container_name: neural-network
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - traefik_network
+    security_opt:
+      - no-new-privileges:true
+    
+    # Environment variables
+    environment:
+      - RUST_LOG=trace
+      - RUST_BACKTRACE=full
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "neural-network-{{.ImageName}}"
+    
+    # Traefik labels for reverse proxy
+    labels:
+      - traefik.enable=true
+      
+      # HTTPS router for production domain and localhost
+      - traefik.http.routers.neural-network.rule=Host(`neural.alexvplle.com`) || Host(`neural.localhost`)
+      - traefik.http.routers.neural-network.entrypoints=websecure
+      - traefik.http.routers.neural-network.tls.certresolver=myresolver
+      
+      # HTTP router for production domain (redirect to HTTPS)
+      - traefik.http.routers.neural-network-redirect.rule=Host(`neural.alexvplle.com`)
+      - traefik.http.routers.neural-network-redirect.entrypoints=web
+      - traefik.http.routers.neural-network-redirect.middlewares=redirect-to-https
+      
+      # HTTP router for localhost (no SSL redirect for local dev)
+      - traefik.http.routers.neural-network-local.rule=Host(`neural.localhost`)
+      - traefik.http.routers.neural-network-local.entrypoints=web
+      
+      # Service configuration
+      - traefik.http.services.neural-network.loadbalancer.server.port=8080
+      
+      # WebSocket support middleware
+      - traefik.http.routers.neural-network.middlewares=websocket-headers
+      - traefik.http.routers.neural-network-local.middlewares=websocket-headers
+      - traefik.http.middlewares.websocket-headers.headers.customrequestheaders.Connection=Upgrade
+      - traefik.http.middlewares.websocket-headers.headers.customrequestheaders.Upgrade=websocket
+      
+      # HTTPS redirect middleware
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+
+networks:
+  traefik_network:
+    external: true
