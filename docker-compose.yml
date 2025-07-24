@@ -32,6 +32,7 @@ services:
       # HTTPS router for production domain and localhost
       - traefik.http.routers.neural-network.rule=Host(`neural.alexvplle.com`) || Host(`neural.localhost`)
       - traefik.http.routers.neural-network.entrypoints=websecure
+      - traefik.http.routers.neural-network.tls=true
       - traefik.http.routers.neural-network.tls.certresolver=myresolver
       
       # HTTP router for production domain (redirect to HTTPS)
