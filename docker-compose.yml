@@ -17,6 +17,14 @@ services:
       - RUST_LOG=trace
       - RUST_BACKTRACE=full
     
+    # Health check to verify the service is running
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    
     # Logging configuration
     logging:
       driver: "json-file"

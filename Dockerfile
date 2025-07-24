@@ -17,6 +17,7 @@ RUN apt-get update && \
     apt-get install -y \
     ca-certificates \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -40,9 +41,6 @@ VOLUME ["/app/models"]
 ENV RUST_LOG=info
 ENV RUST_BACKTRACE=1
 
-# Health check to verify the service is running
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
 
 # Default command: run websocket server with CNN enabled
 CMD ["./nn_from_scratch", "websocket", "--address", "0.0.0.0:8080", "--with-conv"]
