@@ -1,11 +1,18 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio_tungstenite::{accept_async, tungstenite::Message};
+use tokio_tungstenite::{tungstenite::Message};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use ndarray::Array2;
 use image::{GrayImage, ImageBuffer};
 use nn_lib::sequential::Sequential;
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+use hyper::{Request, Response, StatusCode, Method};
+use http_body_util::Full;
+use hyper_util::rt::TokioIo;
+use tokio::net::TcpListener;
+use std::convert::Infallible;
 
 #[derive(Deserialize)]
 pub struct PredictionRequest {
@@ -42,29 +49,83 @@ impl WebSocketServer {
     }
 
     pub async fn start(&self, addr: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let listener = tokio::net::TcpListener::bind(addr).await?;
+        let listener = TcpListener::bind(addr).await?;
         println!("WebSocket server listening on: {}", addr);
 
-        while let Ok((stream, _)) = listener.accept().await {
+        loop {
+            let (stream, _) = listener.accept().await?;
             let mlp_model = Arc::clone(&self.mlp_model);
             let cnn_model = Arc::clone(&self.cnn_model);
-            
+
             tokio::spawn(async move {
-                if let Err(e) = Self::handle_connection(stream, mlp_model, cnn_model).await {
-                    eprintln!("Error handling connection: {}", e);
+                let io = TokioIo::new(stream);
+                
+                let service = service_fn(move |req| {
+                    Self::handle_request(req, Arc::clone(&mlp_model), Arc::clone(&cnn_model))
+                });
+
+                if let Err(err) = http1::Builder::new()
+                    .serve_connection(io, service)
+                    .with_upgrades()
+                    .await
+                {
+                    eprintln!("Error serving connection: {:?}", err);
                 }
             });
         }
-        Ok(())
     }
 
-    async fn handle_connection(
-        stream: tokio::net::TcpStream,
+    async fn handle_request(
+        mut req: Request<hyper::body::Incoming>,
+        mlp_model: Arc<Mutex<Sequential>>,
+        cnn_model: Arc<Mutex<Option<Sequential>>>,
+    ) -> Result<Response<Full<hyper::body::Bytes>>, Infallible> {
+        match (req.method(), req.uri().path()) {
+            (&Method::GET, "/") => {
+                if hyper_tungstenite::is_upgrade_request(&req) {
+                    let (response, websocket) = hyper_tungstenite::upgrade(&mut req, None)
+                        .expect("Failed to upgrade");
+
+                    tokio::spawn(async move {
+                        match websocket.await {
+                            Ok(ws) => {
+                                if let Err(e) = Self::handle_websocket(ws, mlp_model, cnn_model).await {
+                                    eprintln!("Error in websocket connection: {}", e);
+                                }
+                            }
+                            Err(e) => eprintln!("Failed to get websocket: {}", e),
+                        }
+                    });
+
+                    Ok(response)
+                } else {
+                    Ok(Response::builder()
+                        .status(StatusCode::OK)
+                        .body(Full::new(hyper::body::Bytes::from("Neural Network WebSocket Server")))
+                        .unwrap())
+                }
+            }
+            (&Method::GET, "/health") => {
+                Ok(Response::builder()
+                    .status(StatusCode::OK)
+                    .body(Full::new(hyper::body::Bytes::from("OK")))
+                    .unwrap())
+            }
+            _ => {
+                Ok(Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(Full::new(hyper::body::Bytes::from("Not Found")))
+                    .unwrap())
+            }
+        }
+    }
+
+    async fn handle_websocket(
+        websocket: hyper_tungstenite::WebSocketStream<hyper_util::rt::TokioIo<hyper::upgrade::Upgraded>>,
         mlp_model: Arc<Mutex<Sequential>>,
         cnn_model: Arc<Mutex<Option<Sequential>>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let ws_stream = accept_async(stream).await?;
-        let (mut ws_sender, mut ws_receiver) = ws_stream.split();
+        let (mut ws_sender, mut ws_receiver) = websocket.split();
 
         while let Some(msg) = ws_receiver.next().await {
             match msg? {
