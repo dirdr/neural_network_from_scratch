@@ -126,22 +126,49 @@ impl WebSocketServer {
         cnn_model: Arc<Mutex<Option<Sequential>>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (mut ws_sender, mut ws_receiver) = websocket.split();
+        println!("WebSocket connection established");
 
         while let Some(msg) = ws_receiver.next().await {
             match msg? {
                 Message::Text(text) => {
-                    if let Ok(request) = serde_json::from_str::<PredictionRequest>(&text) {
-                        let prediction = Self::process_prediction_request(
-                            request,
-                            &mlp_model,
-                            &cnn_model,
-                        ).await?;
-                        
-                        let response = serde_json::to_string(&prediction)?;
-                        ws_sender.send(Message::Text(response)).await?;
+                    println!("Received WebSocket message: {}", text.len());
+                    match serde_json::from_str::<PredictionRequest>(&text) {
+                        Ok(request) => {
+                            println!("Parsed prediction request for model: {}", request.model_type);
+                            match Self::process_prediction_request(
+                                request,
+                                &mlp_model,
+                                &cnn_model,
+                            ).await {
+                                Ok(prediction) => {
+                                    println!("Prediction successful: digit {}, confidence {:.3}", 
+                                        prediction.predicted_digit, prediction.confidence);
+                                    match serde_json::to_string(&prediction) {
+                                        Ok(response) => {
+                                            println!("Sending response: {} bytes", response.len());
+                                            if let Err(e) = ws_sender.send(Message::Text(response)).await {
+                                                println!("Error sending WebSocket response: {}", e);
+                                            }
+                                        }
+                                        Err(e) => {
+                                            println!("Error serializing response: {}", e);
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    println!("Error processing prediction: {}", e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            println!("Error parsing WebSocket message: {}", e);
+                        }
                     }
                 }
-                Message::Close(_) => break,
+                Message::Close(_) => {
+                    println!("WebSocket connection closed");
+                    break;
+                }
                 _ => {}
             }
         }
@@ -153,9 +180,13 @@ impl WebSocketServer {
         mlp_model: &Arc<Mutex<Sequential>>,
         cnn_model: &Arc<Mutex<Option<Sequential>>>,
     ) -> Result<PredictionResponse, Box<dyn std::error::Error + Send + Sync>> {
+        println!("Processing prediction request...");
         let canvas_data = request.canvas_data;
         let use_cnn = request.model_type == "cnn";
+        println!("Canvas size: {}x{}, pixels: {}, using CNN: {}", 
+            canvas_data.width, canvas_data.height, canvas_data.pixels.len(), use_cnn);
         // Convert RGBA canvas data to grayscale
+        println!("Converting {} pixels from RGBA to grayscale", canvas_data.pixels.len() / 4);
         let mut gray_pixels = Vec::new();
         for chunk in canvas_data.pixels.chunks(4) {
             let r = chunk[0] as f32;
@@ -168,12 +199,16 @@ impl WebSocketServer {
             gray_pixels.push(gray);
         }
 
+        println!("Created {} grayscale pixels", gray_pixels.len());
+        
         // Create grayscale image
         let img: GrayImage = ImageBuffer::from_raw(
             canvas_data.width,
             canvas_data.height,
             gray_pixels,
         ).ok_or("Failed to create image from canvas data")?;
+        
+        println!("Image created successfully");
 
         // Resize to 28x28 like in the original GUI code
         let resized_img: GrayImage = image::imageops::resize(
@@ -193,19 +228,25 @@ impl WebSocketServer {
         let input = input_array.into_dyn();
 
         // Make prediction using selected model
+        println!("Making prediction with {} model", if use_cnn { "CNN" } else { "MLP" });
         let (predictions, model_used) = if use_cnn {
             let cnn_guard = cnn_model.lock().await;
             if let Some(ref cnn) = *cnn_guard {
+                println!("Using CNN model for prediction");
                 (cnn.predict(&input)?, "cnn".to_string())
             } else {
                 // Fallback to MLP if CNN not available
+                println!("CNN not available, falling back to MLP");
                 let mlp = mlp_model.lock().await;
                 (mlp.predict(&input)?, "mlp".to_string())
             }
         } else {
+            println!("Using MLP model for prediction");
             let mlp = mlp_model.lock().await;
             (mlp.predict(&input)?, "mlp".to_string())
         };
+        
+        println!("Prediction completed");
         
         // Find the digit with highest confidence
         let mut max_confidence = 0.0;
