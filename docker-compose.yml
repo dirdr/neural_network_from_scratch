@@ -38,7 +38,7 @@ services:
       - traefik.enable=true
       
       # HTTPS router for production domain and localhost
-      - traefik.http.routers.neural-network.rule=Host(`neural.alexvplle.com`) || Host(`neural.localhost`)
+      - traefik.http.routers.neural-network.rule=Host(`neural.alexvplle.com`)
       - traefik.http.routers.neural-network.entrypoints=websecure
       - traefik.http.routers.neural-network.tls=true
       - traefik.http.routers.neural-network.tls.certresolver=myresolver
@@ -48,16 +48,9 @@ services:
       - traefik.http.routers.neural-network-redirect.entrypoints=web
       - traefik.http.routers.neural-network-redirect.middlewares=redirect-to-https
       
-      # HTTP router for localhost (no SSL redirect for local dev)
-      - traefik.http.routers.neural-network-local.rule=Host(`neural.localhost`)
-      - traefik.http.routers.neural-network-local.entrypoints=web
-      
       # Service configuration
       - traefik.http.services.neural-network.loadbalancer.server.port=8080
       
-      # WebSocket support - remove middleware, Traefik handles WebSocket upgrades automatically
-      
-      # HTTPS redirect middleware
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
 
 networks:
