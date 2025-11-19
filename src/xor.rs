@@ -4,9 +4,9 @@ use nn_lib::{
     activation::Activation,
     cost::CostFunction,
     initialization::InitializerType,
-    layer::{ActivationLayer, DenseLayer},
-    sequential::{Sequential, SequentialBuilder},
+    layers::{ActivationLayer, DenseLayer},
     optimizer::GradientDescent,
+    sequential::{Sequential, SequentialBuilder},
 };
 
 pub fn build_neural_net() -> anyhow::Result<Sequential> {
