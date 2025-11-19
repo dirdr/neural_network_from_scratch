@@ -6,7 +6,7 @@ use egui::{
 use egui_plot::{Bar, BarChart, Plot};
 use image::{GrayImage, ImageBuffer};
 use ndarray::{Array2, ArrayD};
-use nn_lib::{layer::LayerError, sequential::Sequential};
+use nn_lib::{layers::LayerError, sequential::Sequential};
 
 pub struct Application {
     multilayer_perceptron: Sequential,
