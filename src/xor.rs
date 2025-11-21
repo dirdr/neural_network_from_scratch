@@ -5,16 +5,19 @@ use nn_lib::{
     cost::CostFunction,
     initialization::InitializerType,
     layers::{ActivationLayer, DenseLayer},
+    metrics::Metrics,
     optimizer::GradientDescent,
     sequential::{Sequential, SequentialBuilder},
 };
 
 pub fn build_neural_net() -> anyhow::Result<Sequential> {
+    let metrics = Metrics::multiclass_classification(&vec![]);
     let net = SequentialBuilder::new()
         .push(DenseLayer::new(2, 8, InitializerType::GlorotUniform))
         .push(ActivationLayer::from(Activation::ReLU))
         .push(DenseLayer::new(8, 1, InitializerType::GlorotUniform))
-        .push(ActivationLayer::from(Activation::Sigmoid));
+        .push(ActivationLayer::from(Activation::Sigmoid))
+        .with_metrics(metrics);
     Ok(net.compile(GradientDescent::new(0.02), CostFunction::BinaryCrossEntropy)?)
 }
 
