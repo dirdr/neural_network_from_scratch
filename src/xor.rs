@@ -1,5 +1,5 @@
 use log::info;
-use ndarray::{arr1, arr2, Array1, Array2, Axis};
+use candle_core::{Device, Tensor};
 use nn_lib::{
     activation::Activation,
     cost::CostFunction,
@@ -18,17 +18,21 @@ pub fn build_neural_net() -> anyhow::Result<Sequential> {
     Ok(net.compile(GradientDescent::new(0.02), CostFunction::BinaryCrossEntropy)?)
 }
 
-fn get_training_data() -> (Array2<f64>, Array1<f64>) {
-    let x = arr2(&[[0f64, 0f64], [0f64, 1f64], [1f64, 0f64], [1f64, 1f64]]);
-    let y = arr1(&[0f64, 1f64, 1f64, 0f64]);
-    (x, y)
+fn get_training_data() -> anyhow::Result<(Tensor, Tensor)> {
+    let device = Device::cuda_if_available(0)?;
+    let x_data = vec![0f64, 0f64, 0f64, 1f64, 1f64, 0f64, 1f64, 1f64];
+    let y_data = vec![0f64, 1f64, 1f64, 0f64];
+
+    let x = Tensor::from_vec(x_data, &[4, 2], &device)?;
+    let y = Tensor::from_vec(y_data, &[4, 1], &device)?;
+    Ok((x, y))
 }
 
 pub fn start(mut neural_network: Sequential) -> anyhow::Result<()> {
-    let (x, y) = get_training_data();
+    let (x, y) = get_training_data()?;
 
     let (train_hist, _) = neural_network.train(
-        (&x.clone().into_dyn(), &y.insert_axis(Axis(1)).into_dyn()),
+        (&x, &y),
         None,
         2000,
         1,
@@ -38,14 +42,16 @@ pub fn start(mut neural_network: Sequential) -> anyhow::Result<()> {
         info!("Error for epochs {} : {}", i, bench.loss);
     }
 
-    let predictions = neural_network.predict(&x.clone().into_dyn())?;
+    let predictions = neural_network.predict(&x)?;
+    let predictions_vec = predictions.to_vec2::<f64>()?;
 
-    for (i, x) in x.clone().outer_iter().enumerate() {
-        let x1 = x[0];
-        let x2 = x[1];
+    let x_inputs = [[0f64, 0f64], [0f64, 1f64], [1f64, 0f64], [1f64, 1f64]];
+    for (i, input) in x_inputs.iter().enumerate() {
+        let x1 = input[0];
+        let x2 = input[1];
         info!(
             "Xor prediction: {} for input {} {}",
-            predictions[[i, 0]],
+            predictions_vec[i][0],
             x1,
             x2
         )

@@ -1,5 +1,6 @@
-use log::{debug, info, trace};
-use ndarray::{s, Array2, ArrayD};
+use log::{info, trace};
+use ndarray::ArrayD;
+use candle_core::{Device, Tensor};
 use nn_lib::{
     activation::Activation,
     cost::CostFunction,
@@ -74,23 +75,23 @@ fn build_mlp_net() -> anyhow::Result<Sequential> {
     Ok(net.compile(GradientDescent::new(0.1), CostFunction::CrossEntropy)?)
 }
 
-#[derive(PartialEq, Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 struct PreparedDataSet {
-    train: (ArrayD<f64>, ArrayD<f64>),
-    validation: (ArrayD<f64>, ArrayD<f64>),
-    test: (ArrayD<f64>, ArrayD<f64>),
+    train: (Tensor, Tensor),
+    validation: (Tensor, Tensor),
+    test: (Tensor, Tensor),
 }
 
 impl PreparedDataSet {
-    pub fn get_train_ref(&self) -> (&ArrayD<f64>, &ArrayD<f64>) {
+    pub fn get_train_ref(&self) -> (&Tensor, &Tensor) {
         (&self.train.0, &self.train.1)
     }
 
-    pub fn get_validation_ref(&self) -> (&ArrayD<f64>, &ArrayD<f64>) {
+    pub fn get_validation_ref(&self) -> (&Tensor, &Tensor) {
         (&self.validation.0, &self.validation.1)
     }
 
-    pub fn get_test_ref(&self) -> (&ArrayD<f64>, &ArrayD<f64>) {
+    pub fn get_test_ref(&self) -> (&Tensor, &Tensor) {
         (&self.test.0, &self.test.1)
     }
 }
@@ -102,28 +103,20 @@ fn get_data(augment: bool) -> anyhow::Result<PreparedDataSet> {
         dataset.training.0 = augment_dataset(&dataset.training.0);
     }
 
-    let (x_train, y_train) = prepare_data(dataset.training)?;
-
-    // split the training dataset into training / validation
+    let (x_train_full, y_train_full) = prepare_data(dataset.training)?;
     let (x_test, y_test) = prepare_data(dataset.test)?;
 
-    let (x_validation, y_validation) = (
-        x_train.slice(s![48000..60000, ..]),
-        y_train.slice(s![48000..60000, ..]),
-    );
+    // Split training dataset into training / validation (48000 train, 12000 validation)
+    let x_train = x_train_full.narrow(0, 0, 48000)?;
+    let y_train = y_train_full.narrow(0, 0, 48000)?;
 
-    let (x_train, y_train) = (
-        x_train.slice(s![0..48000, ..]),
-        y_train.slice(s![0..48000, ..]),
-    );
+    let x_validation = x_train_full.narrow(0, 48000, 12000)?;
+    let y_validation = y_train_full.narrow(0, 48000, 12000)?;
 
     Ok(PreparedDataSet {
-        train: (x_train.to_owned().into_dyn(), y_train.to_owned().into_dyn()),
-        validation: (
-            x_validation.to_owned().into_dyn(),
-            y_validation.to_owned().into_dyn(),
-        ),
-        test: (x_test.into_dyn(), y_test.into_dyn()),
+        train: (x_train, y_train),
+        validation: (x_validation, y_validation),
+        test: (x_test, y_test),
     })
 }
 
@@ -303,19 +296,31 @@ pub fn start(
     Ok(())
 }
 
-fn prepare_data(data: (ArrayD<u8>, ArrayD<u8>)) -> anyhow::Result<(Array2<f64>, Array2<f64>)> {
-    let x = data.0.mapv(|e| e as f64 / 255f64);
-    let outer = x.shape()[0];
-    let x = x.into_shape((outer, 28 * 28))?;
-    let y = one_hot_encode(&data.1, 10);
-    Ok((x, y))
+fn prepare_data(data: (ArrayD<u8>, ArrayD<u8>)) -> anyhow::Result<(Tensor, Tensor)> {
+    let device = Device::cuda_if_available(0)?;
+
+    // Normalize images: convert u8 to f64 and divide by 255
+    let x = data.0.mapv(|e| e as f64 / 255.0);
+    let num_samples = x.shape()[0];
+
+    // Reshape to (num_samples, 784)
+    let x_flat: Vec<f64> = x.into_iter().collect();
+    let x_tensor = Tensor::from_vec(x_flat, &[num_samples, 28 * 28], &device)?;
+
+    // One-hot encode labels
+    let y_tensor = one_hot_encode(&data.1, 10, &device)?;
+
+    Ok((x_tensor, y_tensor))
 }
 
-fn one_hot_encode(labels: &ArrayD<u8>, num_classes: usize) -> Array2<f64> {
+fn one_hot_encode(labels: &ArrayD<u8>, num_classes: usize, device: &Device) -> anyhow::Result<Tensor> {
     let num_labels = labels.len();
-    let mut one_hot = Array2::<f64>::zeros((num_labels, num_classes));
+    let mut one_hot_vec = vec![0.0f64; num_labels * num_classes];
+
     for (i, &label) in labels.iter().enumerate() {
-        one_hot[[i, label as usize]] = 1.0;
+        one_hot_vec[i * num_classes + label as usize] = 1.0;
     }
-    one_hot
+
+    let tensor = Tensor::from_vec(one_hot_vec, &[num_labels, num_classes], device)?;
+    Ok(tensor)
 }

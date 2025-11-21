@@ -5,7 +5,7 @@ use egui::{
 };
 use egui_plot::{Bar, BarChart, Plot};
 use image::{GrayImage, ImageBuffer};
-use ndarray::{Array2, ArrayD};
+use candle_core::{Device, Tensor};
 use nn_lib::{layers::LayerError, sequential::Sequential};
 
 pub struct Application {
@@ -43,7 +43,7 @@ impl Application {
         }
     }
 
-    fn resize_img_into_28x28(&self) -> anyhow::Result<ArrayD<f64>> {
+    fn resize_img_into_28x28(&self) -> anyhow::Result<Tensor> {
         let mut img: GrayImage = ImageBuffer::from_pixel(
             self.painter_size.x as u32,
             self.painter_size.y as u32,
@@ -66,18 +66,20 @@ impl Application {
         let _ = resized_img.save("output.png");
         let normalized_pixels: Vec<f64> =
             resized_img.pixels().map(|p| p[0] as f64 / 255.0).collect();
-        let arr = Array2::from_shape_vec((1, 28 * 28), normalized_pixels)?;
-        Ok(arr.into_dyn())
+
+        let device = Device::cuda_if_available(0)?;
+        let tensor = Tensor::from_vec(normalized_pixels, &[1, 28 * 28], &device)?;
+        Ok(tensor)
     }
 
-    fn predict_number(&mut self, image: ArrayD<f64>) -> Result<ArrayD<f64>, LayerError> {
+    fn predict_number(&mut self, image: &Tensor) -> Result<Tensor, LayerError> {
         if self.conv_chosen {
             self.convolutional_network
                 .as_ref()
                 .expect("trying to predict with unset convo network")
-                .predict(&image)
+                .predict(image)
         } else {
-            self.multilayer_perceptron.predict(&image)
+            self.multilayer_perceptron.predict(image)
         }
     }
 
@@ -196,10 +198,13 @@ impl App for Application {
             if !self.paths.is_empty() || !self.current_path.is_empty() {
                 if let Ok(image) = self.resize_img_into_28x28() {
                     let mut bars = vec![];
-                    if let Ok(predictions) = self.predict_number(image) {
-                        for (index, prediction) in predictions.iter().enumerate() {
-                            let bar: Bar = Bar::new(index as f64, *prediction).name(index);
-                            bars.push(bar);
+                    if let Ok(predictions) = self.predict_number(&image) {
+                        // Convert tensor to Vec for iteration
+                        if let Ok(predictions_vec) = predictions.to_vec1::<f64>() {
+                            for (index, prediction) in predictions_vec.iter().enumerate() {
+                                let bar: Bar = Bar::new(index as f64, *prediction).name(index);
+                                bars.push(bar);
+                            }
                         }
                     }
 
