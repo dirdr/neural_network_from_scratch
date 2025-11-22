@@ -18,14 +18,14 @@ pub enum NetType {
     Conv,
 }
 
-pub fn get_neural_net(net_type: NetType) -> anyhow::Result<Sequential> {
+pub fn get_neural_net(net_type: NetType, device: &Device) -> anyhow::Result<Sequential> {
     match net_type {
-        NetType::Mlp => build_mlp_net(),
-        NetType::Conv => build_conv_net(),
+        NetType::Mlp => build_mlp_net(device),
+        NetType::Conv => build_conv_net(device),
     }
 }
 
-fn build_conv_net() -> anyhow::Result<Sequential> {
+fn build_conv_net(device: &Device) -> anyhow::Result<Sequential> {
     let metrics = Metrics::multiclass_classification(&vec![MulticlassMetricType::Accuracy]);
 
     let net = SequentialBuilder::new()
@@ -35,6 +35,7 @@ fn build_conv_net() -> anyhow::Result<Sequential> {
             (3, 3),
             5,
             InitializerType::He,
+            device,
         ))
         .push(ActivationLayer::from(Activation::ReLU))
         .push(MaxPoolingLayer::new((26, 26, 5), (2, 2)))
@@ -43,15 +44,16 @@ fn build_conv_net() -> anyhow::Result<Sequential> {
             13 * 13 * 5,
             100,
             InitializerType::GlorotUniform,
+            device,
         ))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(100, 10, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(100, 10, InitializerType::GlorotUniform, device))
         .push(ActivationLayer::from(Activation::Softmax))
         .with_metrics(metrics);
     Ok(net.compile(GradientDescent::new(0.01), CostFunction::CrossEntropy)?)
 }
 
-fn build_mlp_net() -> anyhow::Result<Sequential> {
+fn build_mlp_net(device: &Device) -> anyhow::Result<Sequential> {
     let metrics = Metrics::multiclass_classification(&vec![
         MulticlassMetricType::Accuracy,
         MulticlassMetricType::MacroRecall,
@@ -66,10 +68,10 @@ fn build_mlp_net() -> anyhow::Result<Sequential> {
     ]);
 
     let net = SequentialBuilder::new()
-        .push(DenseLayer::new(784, 256, InitializerType::He))
-        .push(DenseLayer::new(256, 128, InitializerType::He))
+        .push(DenseLayer::new(784, 256, InitializerType::He, device))
+        .push(DenseLayer::new(256, 128, InitializerType::He, device))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(128, 10, InitializerType::He))
+        .push(DenseLayer::new(128, 10, InitializerType::He, device))
         .push(ActivationLayer::from(Activation::Softmax))
         .with_metrics(metrics);
     Ok(net.compile(GradientDescent::new(0.1), CostFunction::CrossEntropy)?)
@@ -96,15 +98,15 @@ impl PreparedDataSet {
     }
 }
 
-fn get_data(augment: bool) -> anyhow::Result<PreparedDataSet> {
+fn get_data(augment: bool, device: &Device) -> anyhow::Result<PreparedDataSet> {
     let mut dataset = load_dataset()?;
 
     if augment {
         dataset.training.0 = augment_dataset(&dataset.training.0);
     }
 
-    let (x_train_full, y_train_full) = prepare_data(dataset.training)?;
-    let (x_test, y_test) = prepare_data(dataset.test)?;
+    let (x_train_full, y_train_full) = prepare_data(dataset.training, device)?;
+    let (x_test, y_test) = prepare_data(dataset.test, device)?;
 
     // Split training dataset into training / validation (48000 train, 12000 validation)
     let x_train = x_train_full.narrow(0, 0, 48000)?;
@@ -125,8 +127,9 @@ pub fn start(
     batch_size: usize,
     epochs: usize,
     augment: bool,
+    device: &Device,
 ) -> anyhow::Result<()> {
-    let prepared = get_data(augment)?;
+    let prepared = get_data(augment, device)?;
 
     let (train_hist, validation_hist) = neural_network.train(
         prepared.get_train_ref(),
@@ -296,19 +299,17 @@ pub fn start(
     Ok(())
 }
 
-fn prepare_data(data: (ArrayD<u8>, ArrayD<u8>)) -> anyhow::Result<(Tensor, Tensor)> {
-    let device = Device::cuda_if_available(0)?;
-
+fn prepare_data(data: (ArrayD<u8>, ArrayD<u8>), device: &Device) -> anyhow::Result<(Tensor, Tensor)> {
     // Normalize images: convert u8 to f64 and divide by 255
     let x = data.0.mapv(|e| e as f64 / 255.0);
     let num_samples = x.shape()[0];
 
     // Reshape to (num_samples, 784)
     let x_flat: Vec<f64> = x.into_iter().collect();
-    let x_tensor = Tensor::from_vec(x_flat, &[num_samples, 28 * 28], &device)?;
+    let x_tensor = Tensor::from_vec(x_flat, &[num_samples, 28 * 28], device)?;
 
     // One-hot encode labels
-    let y_tensor = one_hot_encode(&data.1, 10, &device)?;
+    let y_tensor = one_hot_encode(&data.1, 10, device)?;
 
     Ok((x_tensor, y_tensor))
 }

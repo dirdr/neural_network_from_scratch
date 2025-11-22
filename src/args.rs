@@ -46,6 +46,13 @@ pub struct BenchmarkOptions {
 
     #[arg(short, long, default_value = "mlp")]
     pub net_type: ArgsNetType,
+
+    #[arg(short, long, default_value = "auto")]
+    pub device: DeviceType,
+
+    /// Run benchmark comparing CPU vs GPU performance
+    #[arg(long, default_value = "false")]
+    pub compare_devices: bool,
 }
 
 #[derive(Copy, Clone, ValueEnum, Debug, PartialOrd, Eq, PartialEq, Ord, Hash, Default)]
@@ -64,4 +71,15 @@ pub enum Exemple {
     Mnist,
     #[clap(alias = "xor")]
     Xor,
+}
+
+#[derive(Copy, Clone, ValueEnum, Debug, PartialOrd, Eq, PartialEq, Ord, Default, Hash)]
+pub enum DeviceType {
+    #[clap(alias = "auto")]
+    #[default]
+    Auto,
+    #[clap(alias = "cpu")]
+    Cpu,
+    #[clap(alias = "gpu")]
+    Gpu,
 }

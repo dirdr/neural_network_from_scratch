@@ -11,11 +11,12 @@ use nn_lib::{
 };
 
 pub fn build_neural_net() -> anyhow::Result<Sequential> {
+    let device = Device::cuda_if_available(0)?;
     let metrics = Metrics::multiclass_classification(&vec![]);
     let net = SequentialBuilder::new()
-        .push(DenseLayer::new(2, 8, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(2, 8, InitializerType::GlorotUniform, &device))
         .push(ActivationLayer::from(Activation::ReLU))
-        .push(DenseLayer::new(8, 1, InitializerType::GlorotUniform))
+        .push(DenseLayer::new(8, 1, InitializerType::GlorotUniform, &device))
         .push(ActivationLayer::from(Activation::Sigmoid))
         .with_metrics(metrics);
     Ok(net.compile(GradientDescent::new(0.02), CostFunction::BinaryCrossEntropy)?)
