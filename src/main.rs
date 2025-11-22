@@ -81,12 +81,12 @@ fn run_device_comparison(options: &BenchmarkOptions) -> anyhow::Result<()> {
     let epochs = options.epochs.unwrap_or(5);
     let batch_size = 128;
 
-    info!("\n{'=':=<80}");
+    info!("\n{}", "=".repeat(80));
     info!("Starting CPU vs GPU Benchmark Comparison");
     info!("Network types: MLP and Conv");
     info!("Epochs: {}", epochs);
     info!("Batch size: {}", batch_size);
-    info!("{'=':=<80}\n");
+    info!("{}\n", "=".repeat(80));
 
     // MLP on CPU
     info!("1/4: Training MLP on CPU...");
@@ -123,9 +123,9 @@ fn run_device_comparison(options: &BenchmarkOptions) -> anyhow::Result<()> {
     info!("Conv on GPU completed in {:.3} seconds\n", conv_gpu_time);
 
     // Print comparison
-    info!("\n{'=':=<80}");
+    info!("\n{}", "=".repeat(80));
     info!("BENCHMARK RESULTS");
-    info!("{'=':=<80}\n");
+    info!("{}\n", "=".repeat(80));
 
     info!("{:<30} | {:>20} | {:>20}", "Network", "CPU Time (s)", "GPU Time (s)");
     info!("{:-<30}-+-{:-<20}-+-{:-<20}", "", "", "");
@@ -137,7 +137,7 @@ fn run_device_comparison(options: &BenchmarkOptions) -> anyhow::Result<()> {
         mlp_cpu_time / mlp_gpu_time,
         conv_cpu_time / conv_gpu_time
     );
-    info!("\n{'=':=<80}\n");
+    info!("\n{}\n", "=".repeat(80));
 
     Ok(())
 }
